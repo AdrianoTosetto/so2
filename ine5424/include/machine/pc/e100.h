@@ -521,6 +521,46 @@ protected:
 
 };
 
+class i82559b: public i8255x // Works on E100 (i82559c) physical hardware
+{
+protected:
+    // PCI ID
+    static const unsigned int PCI_VENDOR_ID = 0x8086;
+    static const unsigned int PCI_DEVICE_ID = 0x1229;
+    static const unsigned int PCI_REG_IO = 1;
+    static const unsigned int PCI_REG_MEM = 0;
+
+protected:
+
+    struct Tx_Desc: public i8255x::Base_Tx_Desc {
+        char _frame[FRAME_SIZE];
+
+        Tx_Desc(Reg32 phy_of_next) : i8255x::Base_Tx_Desc(phy_of_next) {
+        }
+
+        friend Debug & operator<<(Debug & db, const Tx_Desc & d) {
+            db << "{" << reinterpret_cast<void *>(d.tbd_array) << ", "
+               << d.tcb_byte_count << ", "
+               << reinterpret_cast<void *>(d.threshold) << ", "
+               << reinterpret_cast<void *>(d.tbd_number) << ", "
+               << "frame: ";
+
+            for (unsigned int i = 0; i < FRAME_SIZE; i++) {
+                db << (unsigned char) (*(d._frame + i));
+            }
+
+            db << "}";
+
+            return db;
+        }
+
+         char * frame() {
+            return _frame;
+    }
+    };
+
+};
+
 class E100: public NIC<Ethernet>, private IF<Traits<E100>::qemu, i82559ER, i82559c>::Result
 {
     friend class Machine_Common;
