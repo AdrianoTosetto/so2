@@ -6,7 +6,7 @@
 #=========================================================================
 # PATHS
 #=========================================================================
-EPOS=/home/tosetto/trab1SO2/ine5424
+EPOS=/home/tosetto/Desktop/Faculdade/19.2/SO2/trab1/so2/ine5424
 TMP=/tmp
 INC=$EPOS/include
 SRC=$EPOS/src
