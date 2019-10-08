@@ -401,12 +401,12 @@ protected:
     Ethernet::Buffer * _tx_buffer_prev; // Previously transmitted buffer
 };
 
-class i82559ER: public i8255x // Works with QEMU
+class i82559b: public i8255x // Works with QEMU
 {
 protected:
     // PCI ID
     static const unsigned int PCI_VENDOR_ID = 0x8086;
-    static const unsigned int PCI_DEVICE_ID = 0x1209;
+    static const unsigned int PCI_DEVICE_ID = 0x1229;
     static const unsigned int PCI_REG_IO = 1;
     static const unsigned int PCI_REG_MEM = 0;
 
@@ -521,13 +521,13 @@ protected:
 
 };
 
-class E100: public NIC<Ethernet>, private IF<Traits<E100>::qemu, i82559ER, i82559c>::Result
+class E100: public NIC<Ethernet>, private IF<Traits<E100>::qemu, i82559b, i82559c>::Result
 {
     friend class Machine_Common;
 
 private:
     // The E100 engine
-    typedef IF<Traits<E100>::qemu, i82559ER, i82559c>::Result Engine;
+    typedef IF<Traits<E100>::qemu, i82559b, i82559c>::Result Engine;
 
     // PCI ID
     static const unsigned int PCI_VENDOR_ID = Engine::PCI_VENDOR_ID;
