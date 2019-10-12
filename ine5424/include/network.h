@@ -12,6 +12,10 @@
 #include <network/ipv4/udp.h>
 #endif
 
+#ifdef __sp__
+#include <network/simple_protocol.h>
+#endif
+
 #ifdef __tstp__
 #include <network/tstp/tstp.h>
 #endif
