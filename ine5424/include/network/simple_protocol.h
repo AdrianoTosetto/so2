@@ -15,13 +15,15 @@ __BEGIN_SYS
 class Simple_Protocol: private NIC<Ethernet>::Observer
 {
 
+    friend class System;
+    friend class Network_Common;
 public:
     typedef Ethernet::Address MAC_Address;
     typedef NIC_Common::Address<4> Address;
-    // Buffers received by the NIC, eventually linked into a list
     typedef Ethernet::Buffer Buffer;
-//    typedef Data_Observer<Buffer, Protocol> Observer;
+    typedef Data_Observer<Buffer> Observer;
     typedef Data_Observed<Buffer> Observed;
+    
 protected:
     template<unsigned int UNIT = 0>
     Simple_Protocol(unsigned int nic = UNIT);
@@ -37,9 +39,9 @@ public:
         } else
             return _networks[unit];
     }
-    //static Buffer * alloc(const Address & to, const Protocol & prot, unsigned int once, unsigned int payload);
-    static int send(Buffer * buf);
-
+    //static Buffer * alloc(const Address & to, const Ethernet::Protocol & prot, unsigned int once, unsigned int payload);
+    static int send(const Address & dst, const Ethernet::Protocol & prot, const void * data, unsigned int size);
+    static int receive(void * data, unsigned int size);
     static const unsigned int mtu() { return Ethernet::MTU; }
 
     static void attach(Data_Observer<Buffer> * obs) { _observed.attach(obs); }

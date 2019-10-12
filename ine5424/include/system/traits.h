@@ -216,7 +216,7 @@ template<> struct Traits<Network>: public Traits<void>
     static const unsigned int RETRIES = 3;
     static const unsigned int TIMEOUT = 10; // s
 
-    typedef LIST<IP> NETWORKS;
+    typedef LIST<Simple_Protocol> NETWORKS;
 };
 
 template<> struct Traits<TSTP>: public Traits<Network>
@@ -227,6 +227,17 @@ template<> struct Traits<TSTP>: public Traits<Network>
 
     static const unsigned int KEY_SIZE = 16;
     static const unsigned int RADIO_RANGE = 8000; // Approximated radio range in centimeters
+};
+
+template<> struct Traits<Simple_Protocol>: public Traits<Network>
+{
+    static const bool enabled = NETWORKS::Count<Simple_Protocol>::Result;
+
+    template<unsigned int UNIT>
+    struct Config {
+        static const unsigned int TYPE = MAC;
+        static const unsigned long ADDRESS = 0x0a000100;  // 10.0.1.x x=MAC[5]
+    };
 };
 
 template<> struct Traits<IP>: public Traits<Network>

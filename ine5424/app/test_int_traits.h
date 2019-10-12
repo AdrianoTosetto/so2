@@ -216,7 +216,7 @@ template<> struct Traits<Network>: public Traits<void>
     static const unsigned int RETRIES = 3;
     static const unsigned int TIMEOUT = 10; // s
 
-    typedef LIST<IP> NETWORKS;
+    typedef LIST<Simple_Protocol> NETWORKS;
 };
 
 template<> struct Traits<TSTP>: public Traits<Network>
@@ -246,6 +246,23 @@ template<> struct Traits<IP>: public Traits<Network>
     static const unsigned int TTL  = 0x40; // Time-to-live
 };
 
+template<> struct Traits<Simple_Protocol>: public Traits<Network>
+{
+    static const bool enabled = NETWORKS::Count<Simple_Protocol>::Result;
+
+    template<unsigned int UNIT>
+    struct Config;
+
+    static const unsigned int TTL  = 0x40; // Time-to-live
+};
+
+template<> struct Traits<Simple_Protocol>::Config<0>
+{
+    static const unsigned int TYPE = MAC;
+    static const unsigned long ADDRESS   = 0x0a000100;  // 10.0.1.x x=MAC[5]
+
+};
+
 template<> struct Traits<IP>::Config<0> //: public Traits<IP>::Default_Config
 {
     static const unsigned int  TYPE      = MAC;
@@ -253,6 +270,7 @@ template<> struct Traits<IP>::Config<0> //: public Traits<IP>::Default_Config
     static const unsigned long NETMASK   = 0xffffff00;  // 255.255.255.0
     static const unsigned long GATEWAY   = 0;           // 10.0.1.1
 };
+
 
 template<> struct Traits<IP>::Config<1>: public Traits<IP>::Default_Config
 {
