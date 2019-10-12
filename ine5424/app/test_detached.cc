@@ -18,14 +18,15 @@ int main()
     cout << "  NIC: " << sp->nic()->address() << endl;
     if(sp->nic()->address()[5] % 2) { // sender
         Delay (5000000);
-        for(int i = 0; i < 10; i++) {
-            memset(data, '0' + i, sp->mtu());
-            data[sp->mtu() - 1] = '\n';
-            sp->send(reinterpret_cast<void*>(data), sp->mtu());
-        }
+        memset(data, '1', sp->mtu());
+        data[sp->mtu() - 1] = '\n';
+        cout << " addr: " << sp->address() << endl;
+        sp->send(reinterpret_cast<void*>(data), sp->mtu());
     } else {
-        Delay (5000000);
-        sp->receive(data, sp->mtu());
+        Delay(5000000);
+        Delay(5000000);
+        sp->receive(&data, sp->mtu());
+        cout << data << endl;
     }
 
     NIC<Ethernet>::Statistics stat = sp->nic()->statistics();

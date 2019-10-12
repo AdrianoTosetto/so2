@@ -22,36 +22,19 @@ int Simple_Protocol::send(const void * data, unsigned int size)
     db<Simple_Protocol>(TRC) << "Simple_Protocol::send()" << endl;
     Simple_Protocol * sp = Simple_Protocol::get_by_nic(0);
     NIC<Ethernet> * nic = sp->nic();
-
-    return nic->send(nic->address(), 0x8888, data, size); // implicitly releases the pool
+    db<Simple_Protocol>(WRN) << "Enviando para " << nic->address() << " o dado " << &data << endl;
+    return nic->send(nic->broadcast(), 0x8888, data, size); // implicitly releases the pool
 }
-
 
 int Simple_Protocol::receive(void * d, unsigned int s)
 {
     unsigned char * data = reinterpret_cast<unsigned char *>(d);
 
-    //db<TCP>(TRC) << "TCP::receive(buf=" << pool << ",d=" << d << ",s=" << s << ")" << endl;
     Simple_Protocol * sp = Simple_Protocol::get_by_nic(0);
     NIC<Ethernet> * nic = sp->nic();
-
-    Buffer * pool = nic->alloc(nic->address(), NIC<Ethernet>::PROTO_SP, 0, s, 0);
-    Buffer::Element * head = pool->link();
-    unsigned int size = 0;
-
-    for(Buffer::Element * el = head; el && (size <= s); el = el->next()) {
-        Buffer * buf = el->object();
-
-        memcpy(data, buf->frame()->data<void>(), s);
-        db<TCP>(INF) << "TCP::receive:buf=" << buf << " => " << *buf << endl;
-
-        data += s;
-        size += s;
-    }
-
-    pool->nic()->free(pool);
-
-    return size;
+    NIC<Ethernet>::Address src = nic->address();
+    NIC<Ethernet>::Protocol prot;
+    return nic->receive(&src, &prot, data, s); 
 }
 
 void Simple_Protocol::update(NIC<Ethernet>::Observed * obs, const NIC<Ethernet>::Protocol & prot, Buffer * buf)
