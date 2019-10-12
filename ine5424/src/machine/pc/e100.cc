@@ -217,50 +217,9 @@ void E100::reset()
 
 int E100::send(const Address & dst, const Protocol & prot, const void * data, unsigned int size)
 {
-    // wait for a free TxCB
-    while(!(_tx_ring[_tx_cur].status & cb_complete)) {
-        if (_tx_cuc_suspended) {
-            //_int_lock.acquire();
-            _tx_cuc_suspended = 0;
-            while(exec_command(cuc_resume, 0));
-            //_int_lock.release();
-        }
-    }
-
-    _tx_ring[_tx_cur].status = Tx_CB_IN_USE;
-    _tx_ring[_tx_cur].tcb_byte_count = (size + HEADER_SIZE);
-
-    // put the ethernet frame into de TxCB
-    // new (_tx_ring[_tx_cur].frame) Frame(_address, dst, htons(prot), data, size); // original
-    /* New implementation, double copy: parameters to buffer and buffer to Tx_Desc.frame.
-     * Making Tx_Desc.frame a pointer does not work (I believe E100 demands for
-     * a contiguous allocated memory for Tx ring descriptors).
-     */
-    Buffer * buf = _tx_buffer[_tx_cur];
-    Frame * frame = buf->frame();
-    new (frame) Frame(_address, dst, htons(prot), data, size);
-    new (_tx_ring[_tx_cur].frame()) Frame(_address, frame->dst(), htons(frame->prot()), frame->data<void>(), size);
-    // ----
-    // TODO: the above doesn't make sense!
-
-    db<E100>(TRC) << "E100::send(dst=" << dst << ", prot=" << prot << ", data=" << (char *) data << ", size=" << size << ")";
-    db<E100>(INF) << "E100::send:frame={dst=" << frame->dst() << ", prot=" << frame->prot() << ", data=" << (char *) frame->data<void>() << ", size=" << buf->size() << "}" << endl;
-
-    _tx_ring[_tx_cur].command = cb_s; // suspend bit
-    _tx_ring[_tx_cur].command |= (cb_tx | cb_cid); // transmit command
-
-    _tx_ring[_tx_prev].command &= ~cb_s; // remove suspend bit
-    ++_tx_prev %= TX_BUFS;
-
-    // we have no guarantee that this command will be accepted by the adapter
-    exec_command(cuc_resume, 0);
-
-    ++_tx_cur %= TX_BUFS;
-
-    _statistics.tx_packets++;
-    _statistics.tx_bytes += size;
-
-    return size;
+    int res = exec_command(cuc_resume, 0);
+    db<E100>(WRN) << "executing exec_command and it returns " << res << endl;
+    return 0;
 }
 
 bool E100::verifyPendingInterrupts(void)
@@ -296,40 +255,7 @@ bool E100::verifyPendingInterrupts(void)
 
 int E100::receive(Address * src, Protocol * prot, void * data, unsigned int size)
 {
-    // wait until the RFD is filled up by the device
-    while(!(_rx_ring[_rx_cur].status & cb_complete))
-        verifyPendingInterrupts();
-
-    // fill up receive areas/variables
-    Frame * frame = (Frame *)_rx_ring[_rx_cur].frame;
-    *src = frame->header()->src();
-    *prot = ntohs(frame->header()->prot());
-
-    if (_rx_ring[_rx_cur].actual_count & (RFD_EOF_MASK | RFD_F_MASK))
-        size = _rx_ring[_rx_cur].actual_count & RFD_ACTUAL_COUNT_MASK;
-    else
-        size = 0;
-
-    if (! (_rx_ring[_rx_cur].status & RFD_OK_MASK))
-        db<E100>(WRN) << "Error on frame reception" << endl;
-
-    memcpy(data, frame->data<void>(), size);
-
-    //kout << "recv (size: " << size << " prot: " << *prot <<")" << endl;
-
-    _rx_ring[_rx_cur].command = cb_el;
-    _rx_ring[_rx_cur].status = Rx_RFD_NOT_FILLED;
-
-    // try to avoid ruc stop interrupts by "walking" the el bit
-    _rx_ring[_rx_last_el].command &= ~cb_el; // remove previous el bit
-    _rx_last_el = _rx_cur;
-
-    ++_rx_cur %= RX_BUFS;
-
-    _statistics.rx_packets++;
-    _statistics.rx_bytes += size;
-
-    return size;
+    return 0;
 }
 
 /*! NOTE: this method is not thread-safe as _tx_cur is shared by all threads

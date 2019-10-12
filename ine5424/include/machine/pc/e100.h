@@ -401,7 +401,7 @@ protected:
     Ethernet::Buffer * _tx_buffer_prev; // Previously transmitted buffer
 };
 
-class i82559b: public i8255x // Works with QEMU
+class i82559b: public i8255x
 {
 protected:
     // PCI ID
@@ -411,6 +411,8 @@ protected:
     static const unsigned int PCI_REG_MEM = 0;
 
     static const unsigned int TBD_ARRAY_SIZE = 1;
+    i82559b(unsigned int unit, IO_Port io_port, IO_Irq irq, DMA_Buffer * dma_buf);
+    void init(unsigned int unit);
 
 protected:
 

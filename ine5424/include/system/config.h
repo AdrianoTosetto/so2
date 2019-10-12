@@ -11,7 +11,7 @@
 #define ARCH ia32
 #define MACH pc
 #define MMOD legacy_pc
-#define APPL test_detached
+#define APPL nic_test
 #define __mode_library__
 #define __arch_ia32__
 #define __mach_pc__

@@ -11,7 +11,7 @@ __BEGIN_SYS
 void E100::init(unsigned int unit)
 {
     db<Init, E100>(TRC) << "E100::init(unit=" << unit << ")" << endl;
-
+    db<Init, E100>(WRN) << "init e100" << endl;
     assert(unit < UNITS);
 
     // Scan the PCI bus for device
