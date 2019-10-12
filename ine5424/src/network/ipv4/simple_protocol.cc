@@ -17,14 +17,13 @@ Simple_Protocol::~Simple_Protocol()
     _nic->detach(this, NIC<Ethernet>::PROTO_SP);
 }
 
-int Simple_Protocol::send(const Address & dst, const Ethernet::Protocol & prot, const void * data, unsigned int size)
+int Simple_Protocol::send(const void * data, unsigned int size)
 {
     db<Simple_Protocol>(TRC) << "Simple_Protocol::send()" << endl;
     Simple_Protocol * sp = Simple_Protocol::get_by_nic(0);
     NIC<Ethernet> * nic = sp->nic();
 
-    Buffer * pool = nic->alloc(nic->address(), NIC<Ethernet>::PROTO_SP, 0, size, 0);
-    return pool->nic()->send(pool); // implicitly releases the pool
+    return nic->send(nic->address(), 0x8888, data, size); // implicitly releases the pool
 }
 
 
@@ -43,9 +42,9 @@ int Simple_Protocol::receive(void * d, unsigned int s)
     for(Buffer::Element * el = head; el && (size <= s); el = el->next()) {
         Buffer * buf = el->object();
 
+        memcpy(data, buf->frame()->data<void>(), s);
         db<TCP>(INF) << "TCP::receive:buf=" << buf << " => " << *buf << endl;
 
-        memcpy(data, buf->frame()->data<void>(), s);
         data += s;
         size += s;
     }

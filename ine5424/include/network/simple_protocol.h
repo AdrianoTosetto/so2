@@ -40,7 +40,7 @@ public:
             return _networks[unit];
     }
     //static Buffer * alloc(const Address & to, const Ethernet::Protocol & prot, unsigned int once, unsigned int payload);
-    static int send(const Address & dst, const Ethernet::Protocol & prot, const void * data, unsigned int size);
+    static int send(const void * data, unsigned int size);
     static int receive(void * data, unsigned int size);
     static const unsigned int mtu() { return Ethernet::MTU; }
 

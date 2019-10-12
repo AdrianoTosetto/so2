@@ -21,13 +21,11 @@ int main()
         for(int i = 0; i < 10; i++) {
             memset(data, '0' + i, sp->mtu());
             data[sp->mtu() - 1] = '\n';
-            sp->send(sp->address(), 0x8888, reinterpret_cast<void*>(data), sp->mtu());
+            sp->send(reinterpret_cast<void*>(data), sp->mtu());
         }
     } else {
         Delay (5000000);
-        for(int i = 0; i < 10; i++) {
-            sp->receive(reinterpret_cast<void*>(data), sp->mtu());
-        }
+        sp->receive(data, sp->mtu());
     }
 
     NIC<Ethernet>::Statistics stat = sp->nic()->statistics();
