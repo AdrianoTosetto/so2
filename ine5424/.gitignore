@@ -1,1 +1,7 @@
 dockepos
+bin/*
+img/*.img
+app/*.o
+app/*
+!app/*.h
+!app/*.cc
