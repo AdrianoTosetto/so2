@@ -24,18 +24,41 @@ int test_int() {
     cout << "  MAC: " << self << endl;
 
     if(self[5] % 2) { // sender
-        Delay (5000000);
+        //Delay (5000000);
+        memset(data, '1', nic->mtu()+1);
+        data[nic->mtu() - 1] = '\n';
 
-        for(int i = 0; i < 1000; i++) {
-            memset(data, '1' + i, nic->mtu()+1);
-            data[nic->mtu() - 1] = '\n';
-            nic->send(nic->broadcast(), 0x8888, data, nic->mtu());
-        }
+        nic->send(nic->broadcast(), 0x8888, data, nic->mtu());
+        Delay (3000000);
+        nic->send(nic->broadcast(), 0x8888, data, nic->mtu());
+        Delay (1000000);
+        nic->send(nic->broadcast(), 0x8888, data, nic->mtu());
+        Delay (4000000);
+        nic->send(nic->broadcast(), 0x8888, data, nic->mtu());
     } else {
         TSC_Chronometer cr;
-
-           nic->receive(&src, &prot, data, nic->mtu());
-           cout << "  Data: " << data;
+        cr.start();
+        nic->receive(&src, &prot, data, nic->mtu());
+        cr.stop();
+        cout << "Time = " << cr.read() / 1000000 << endl;
+        cr.reset();
+        cr.start();
+        nic->receive(&src, &prot, data, nic->mtu());
+        cr.stop();
+        cout << "Time = " << cr.read() / 1000000 << endl;
+        cr.reset();
+        cr.start();
+        nic->receive(&src, &prot, data, nic->mtu());
+        cr.stop();
+        cout << "Time = " << cr.read() / 1000000 << endl;
+        cr.reset();
+        cr.start();
+        nic->receive(&src, &prot, data, nic->mtu());
+        cr.stop();
+        cout << "Time = " << cr.read() / 1000000 << endl;
+        cr.reset();
+        cr.start();
+        cout << "  Data: " << data;
         
     }
 
@@ -51,10 +74,5 @@ int test_int() {
 
 int main()
 {
-    int ttest_one = test_one() / 1000000;
-    int ttest_two = test_two() / 1000000;
-    int ttest_three = test_three() / 1000000;
-    cout << "Teste 1 demorou " << ttest_one << " segundos" << endl;
-    cout << "Teste 2 demorou " << ttest_two << " segundos" << endl;
-    cout << "Teste 3 demorou " << ttest_three << " segundos" << endl;
+    test_int();
 }
