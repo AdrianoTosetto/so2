@@ -9,9 +9,6 @@ OStream cout;
 int main()
 {
     cout << "NIC Test" << endl;
-
-    NIC<Ethernet>::Address src;
-    NIC<Ethernet>::Protocol prot;
     Simple_Protocol * sp = Simple_Protocol::get_by_nic(0);
     char data[sp->mtu()];
 
