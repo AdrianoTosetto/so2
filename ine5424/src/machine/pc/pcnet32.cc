@@ -24,8 +24,8 @@ int PCNet32::send(const Address & dst, const Protocol & prot, const void * data,
     unsigned int i = _tx_cur;
     for(bool locked = false; !locked; ) {
         for(; _tx_ring[i].status & Tx_Desc::OWN; ++i %= TX_BUFS);
-        locked = _tx_buffer[i]->lock();
         if (i == (unsigned) _rx_cur) _statistics.rx_overflow = true;
+        locked = _tx_buffer[i]->lock();
     }
     _tx_cur = (i + 1) % TX_BUFS; // _tx_cur and _rx_cur are simple accelerators to avoid scanning the ring buffer from the beginning.
                                  // Losing a write in a race condition is assumed to be harmless. The FINC + CAS alternative seems too expensive.

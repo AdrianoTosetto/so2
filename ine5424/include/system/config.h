@@ -97,8 +97,9 @@ namespace EPOS {
 #define __FPGA_H                __HEADER_MACH(fpga)
 #define __AES_H                 __HEADER_MACH(aes)
 #define __ipv4__
-#define __tstp__
 #define __sp__
+#define __tstp__
+
 #define __KEYPAD_H              __HEADER_TRAN(keypad)
 
 #endif

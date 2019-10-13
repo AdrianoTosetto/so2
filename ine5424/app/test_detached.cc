@@ -10,9 +10,7 @@ int main()
 {
     cout << "NIC Test" << endl;
 
-    NIC<Ethernet> * nic = Traits<Ethernet>::DEVICES::Get<0>::Result::get(0);
-
-    NIC<Ethernet>::Address src, dst;
+    NIC<Ethernet>::Address src;
     NIC<Ethernet>::Protocol prot;
     Simple_Protocol * sp = Simple_Protocol::get_by_nic(0);
     char data[sp->mtu()];
