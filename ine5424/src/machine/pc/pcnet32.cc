@@ -66,6 +66,7 @@ int PCNet32::receive(Address * src, Protocol * prot, void * data, unsigned int s
     unsigned int i = _rx_cur;
     for(bool locked = false; !locked; ) {
         for(; _rx_ring[i].status & Rx_Desc::OWN; ++i %= RX_BUFS);
+        if (i == _rx_cur) _statistics.rx_overflow = true;
         locked = _rx_buffer[i]->lock();
     }
     _rx_cur = (i + 1) % RX_BUFS;
