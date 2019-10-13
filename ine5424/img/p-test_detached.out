@@ -7,12 +7,11 @@ Setting up this machine as follows:
   Node Id:      will get from the network!
   Position:       (10,10,0)
   Setup:        22272 bytes
-  APP code:     37280 bytes	data: 512 bytes
+  APP code:     32832 bytes	data: 512 bytes
 NIC Test
  addr: a.0.1.9
   NIC: 56:34:12:0:54:9
  addr: a.0.1.9
-Enviando para 56:34:12:0:54:9 o dado 0x0009f3b0
 Statistics
 Tx Packets: 1
 Tx Bytes:   1500

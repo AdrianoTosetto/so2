@@ -22,7 +22,6 @@ int Simple_Protocol::send(const void * data, unsigned int size)
     db<Simple_Protocol>(TRC) << "Simple_Protocol::send()" << endl;
     Simple_Protocol * sp = Simple_Protocol::get_by_nic(0);
     NIC<Ethernet> * nic = sp->nic();
-    db<Simple_Protocol>(WRN) << "Enviando para " << nic->address() << " o dado " << &data << endl;
     return nic->send(nic->broadcast(), 0x8888, data, size); // implicitly releases the pool
 }
 

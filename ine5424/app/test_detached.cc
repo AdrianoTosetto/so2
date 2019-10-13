@@ -10,7 +10,10 @@ int main()
 {
     cout << "NIC Test" << endl;
 
-    
+    NIC<Ethernet> * nic = Traits<Ethernet>::DEVICES::Get<0>::Result::get(0);
+
+    NIC<Ethernet>::Address src, dst;
+    NIC<Ethernet>::Protocol prot;
     Simple_Protocol * sp = Simple_Protocol::get_by_nic(0);
     char data[sp->mtu()];
 
@@ -21,11 +24,9 @@ int main()
         memset(data, '1', sp->mtu());
         data[sp->mtu() - 1] = '\n';
         cout << " addr: " << sp->address() << endl;
-        sp->send(reinterpret_cast<void*>(data), sp->mtu());
+        sp->send(data, sp->mtu());
     } else {
-        Delay(5000000);
-        Delay(5000000);
-        sp->receive(&data, sp->mtu());
+        sp->receive(data, sp->mtu());
         cout << data << endl;
     }
 
