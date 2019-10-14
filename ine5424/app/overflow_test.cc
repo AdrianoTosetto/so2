@@ -50,7 +50,8 @@ int main()
     NIC<Ethernet>::Protocol prot;
     char data[nic->mtu()];
     if(self[5] % 2) { // sender
-        for (int i = 0; i < 20; i++) {
+        //Delay (5000000);
+        for (int i = 0; i < 200; i++) {
             memset(data, '0' + i, nic->mtu());
             data[nic->mtu() - 1] = '\n';
             nic->send(nic->broadcast(), 0x8888, data, nic->mtu());
@@ -58,13 +59,11 @@ int main()
         }
     } else { // receiver
         Delay waiting(2000000);
-        for (int i = 0; i < 20; i++) {
-            char data[nic->mtu()];
+        for (int i = 0; i < 200; i++) {
             nic->receive(&src, &prot, data, nic->mtu());
             cout << "Pacote recebido: " << data;
         }
     }
-
     NIC<Ethernet>::Statistics stat = nic->statistics();
     cout << "Statistics\n"
         << "Tx Packets: " << stat.tx_packets << "\n"
@@ -74,4 +73,5 @@ int main()
         << "Overflow in Tx: " << stat.tx_overflow << "\n"
         << "Overflow in Rx: " << stat.rx_overflow << "\n";
 
+    return 0;
 }

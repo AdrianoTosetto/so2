@@ -23,13 +23,13 @@ int main()
     if(self[5] % 2) { // sender
         Delay (5000000);
 
-        for(int i = 0; i < 10; i++) {
+        for(int i = 0; i < 100; i++) {
             memset(data, '0' + i, nic->mtu());
             data[nic->mtu() - 1] = '\n';
             nic->send(nic->broadcast(), 0x8888, data, nic->mtu());
         }
     } else { // receiver
-        for(int i = 0; i < 10; i++) {
+        for(int i = 0; i < 100; i++) {
            nic->receive(&src, &prot, data, nic->mtu());
            cout << "  Data: " << data;
         }
