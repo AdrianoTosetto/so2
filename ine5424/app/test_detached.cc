@@ -9,9 +9,6 @@ OStream cout;
 int main()
 {
     cout << "NIC Test" << endl;
-
-    NIC<Ethernet>::Address src;
-    NIC<Ethernet>::Protocol prot;
     Simple_Protocol * sp = Simple_Protocol::get_by_nic(0);
     char data[sp->mtu()];
 
@@ -19,9 +16,11 @@ int main()
     cout << "  NIC: " << sp->nic()->address() << endl;
     if(sp->nic()->address()[5] % 2) { // sender
         Delay (5000000);
-        memset(data, '1', sp->mtu());
-        data[sp->mtu() - 1] = '\n';
-        cout << " addr: " << sp->address() << endl;
+        data[0] = 'H';
+        data[1] = 'e';
+        data[2] = 'l';
+        data[3] = 'l';
+        data[4] = 'o';
         sp->send(data, sp->mtu());
     } else {
         sp->receive(data, sp->mtu());
