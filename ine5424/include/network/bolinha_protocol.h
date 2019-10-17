@@ -23,6 +23,7 @@ public:
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
     Bolinha_Protocol(): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)) {
         _nic->attach(this, Prot_Bolinha);
+        
     }
     int send(const void *data, size_t size) {
         _nic->send(_nic->broadcast(), Prot_Bolinha, data, size);
@@ -42,10 +43,34 @@ public:
     const Address& addr() const {
         return _nic->address();
     }
+    unsigned int MTU() {
+        return Bolinha_MTU; // header precisa ser packed pra calcular certo o mtu
+    }
+    class Header {
+    public:    
+        Address _to;
+        Address _from;
+        int unsigned short  _flags: 1; // por agora temos só a flag isACK, se houver necessidade de mais flags
+                                      // aumentar o campo de bits desse atributo _flags
+        unsigned short  _checksum; // verificar se o frame chegou com todos os bits corretos
+        unsigned short  _length;
+        unsigned short  _id;
+
+    } __attribute__((packed));
+
+    class Frame: private Header {
+    public: 
+        Frame() {
+
+        }
+        typedef unsigned char Data[];
+    } __attribute__((packed));
 protected:
     NIC<Ethernet> * _nic;
     Address _address;
-    static Observed _observed; 
+    static Observed _observed;
+    static const unsigned int NIC_MTU = 1500;
+    static const unsigned int Bolinha_MTU = NIC_MTU - sizeof(Header);
 };
 
 
