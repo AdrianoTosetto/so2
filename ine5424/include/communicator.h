@@ -274,4 +274,15 @@ public:
 
 __END_SYS
 
+
+class GSD_Protocol: private Communicator_Common<NIC<Ethernet>::Observer, true>  {
+
+public:
+    GSD_Protocol() {
+
+    }
+
+
+};
+
 #endif
