@@ -9,6 +9,7 @@ Simple_Protocol::Simple_Protocol(unsigned int unit)
 :_nic(Traits<Ethernet>::DEVICES::Get<UNIT>::Result::get(unit)),
  _address(Traits<IP>::Config<UNIT>::ADDRESS)
 {
+    init(0);
     db<Simple_Protocol>(TRC) << "Simple_Protocol::Simple_Protocol(nic=" << _nic << ") => " << this << endl;
     _nic->attach(this, NIC<Ethernet>::PROTO_SP);
     if(Traits<IP>::Config<UNIT>::TYPE == Traits<IP>::MAC)
