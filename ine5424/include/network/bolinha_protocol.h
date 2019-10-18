@@ -43,9 +43,10 @@ public:
     const Address& addr() const {
         return _nic->address();
     }
-    unsigned int MTU() {
+    /*unsigned int MTU() {
         return Bolinha_MTU; // header precisa ser packed pra calcular certo o mtu
-    }
+    }*/
+
     class Header {
     public:    
         Address _to;
@@ -58,13 +59,29 @@ public:
 
     } __attribute__((packed));
 
-    class Frame: private Header {
-    public: 
-        Frame() {
+    static const unsigned int MTU = 1500 - sizeof(Header);
+    typedef unsigned char Data[MTU];
 
+    class Packet: private Header 
+    {
+    public: 
+        Packet() {}
+        Header * header() { return this; }
+
+        template <typename T>
+        T * data() { return reinterpret_cast<T *>(&_data); }
+
+        friend Debug & operator<<(Debug & db, const Packet & p) {
+            db << "{head=" << reinterpret_cast<const Header &>(p) << ",data=" << p._data << "}";
+            return db;
         }
-        typedef unsigned char Data[];
+
+    private:
+        Data _data;
     } __attribute__((packed));
+
+    typedef Packet PDU;
+
 protected:
     NIC<Ethernet> * _nic;
     Address _address;
