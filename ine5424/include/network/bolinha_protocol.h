@@ -5,6 +5,7 @@
 
 #include <system/config.h>
 #include <synchronizer.h>
+#include <utility/list.h>
 
 #include <utility/bitmap.h>
 #include <machine/nic.h>
@@ -21,11 +22,17 @@ public:
     typedef Data_Observed<Buffer, Ethernet::Protocol> Observed;
     typedef Ethernet::Protocol Protocol;
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
+    Simple_List<unsigned short> * sent_messages;
     Bolinha_Protocol(): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)) {
         _nic->attach(this, Prot_Bolinha);
+        current_id = 0;
+        this->sent_messages = new Simple_List<unsigned short>();
         
     }
     int send(const void *data, size_t size) {
+        //this->sent_messages->insert(1u);
+        db<Bolinha_Protocol>(WRN) << "sent_messages " << this->sent_messages->size() << endl;
+
         _nic->send(_nic->broadcast(), Prot_Bolinha, data, size);
     }
     int receive(void *buffer, size_t size) {
@@ -88,6 +95,7 @@ protected:
     static Observed _observed;
     static const unsigned int NIC_MTU = 1500;
     static const unsigned int Bolinha_MTU = NIC_MTU - sizeof(Header);
+    static unsigned short current_id;
 };
 
 
