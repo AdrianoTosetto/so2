@@ -1,0 +1,13 @@
+
+Setting up this machine as follows: 
+  Processor:    1 x IA32 at 3699 MHz (BUS clock = 125 MHz)
+  Memory:       262144 Kbytes [0x00000000:0x10000000]
+  User memory:  261820 Kbytes [0x00000000:0x0ffaf000]
+  PCI aperture: 28232 Kbytes [0xfd000000:0xfeb92020]
+  Node Id:      will get from the network!
+  Position:       (10,10,0)
+  Setup:        22272 bytes
+  APP code:     49232 bytes	data: 608 bytes
+NIC Test
+The last thread has exited!
+Rebooting the machine ...

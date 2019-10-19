@@ -20,6 +20,7 @@ public:
     typedef Data_Observer<Buffer, Ethernet::Protocol> Observer;
     typedef Data_Observed<Buffer, Ethernet::Protocol> Observed;
     typedef Ethernet::Protocol Protocol;
+
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
     Bolinha_Protocol(): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)) {
         _nic->attach(this, Prot_Bolinha);
@@ -38,6 +39,7 @@ public:
         return _observed.notify(p, b);
     }
     void update(Observed *o, const Protocol& p, Buffer *b) {
+        db<Bolinha_Protocol>(WRN) << "Teste" << endl;
         Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
     }
     const Address& addr() const {
@@ -48,6 +50,29 @@ public:
     }*/
 
     class Header {
+    public:
+        Header() {}
+        Header(const Address& from, const Address & to, unsigned size) :
+        _from(from), _to(to), _length((htons(size))) {}
+
+        unsigned short length() const { return ntohs(_length); }
+        void length(unsigned short length) { _length = htons(length); }
+        unsigned short id() const { return ntohs(_id); }
+        const Address & from() const { return _from; }
+        void from(const Address & from){ _from = from; }
+
+        const Address & to() const { return _to; }
+        void to(const Address & to){ _to = to; }
+
+        friend Debug & operator<<(Debug & db, const Header & h) {
+            db << ",len=" << h.length()
+               << ",id="  << h.id()
+               << ",from=" << h._from
+               << ",to=" << h._to
+               << "}";
+            return db;
+        }
+
     public:    
         Address _to;
         Address _from;
