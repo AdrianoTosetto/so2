@@ -21,25 +21,28 @@ public:
     typedef Data_Observer<Buffer, Ethernet::Protocol> Observer;
     typedef Data_Observed<Buffer, Ethernet::Protocol> Observed;
     typedef Ethernet::Protocol Protocol;
-
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
-    Simple_List<unsigned short> * sent_messages;
-    Bolinha_Protocol(): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)) {
+    Bolinha_Protocol(): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0))
+    {
         _nic->attach(this, Prot_Bolinha);
-        current_id = 0;
-        this->sent_messages = new Simple_List<unsigned short>();
-        
     }
-    int send(const void *data, size_t size) {
-        //this->sent_messages->insert(1u);
-        db<Bolinha_Protocol>(WRN) << "sent_messages " << this->sent_messages->size() << endl;
 
-        _nic->send(_nic->broadcast(), Prot_Bolinha, data, size);
+    int send(const Address & from, const Address & to, const void *data, size_t size) {
+
+        Buffer *buf = _nic->alloc(to, Prot_Bolinha, 0, sizeof(Header), size+sizeof(Header));
+        Packet *packet = buf->frame()->data<Packet>();
+    
+        memcpy(packet->data<void>(), data, size);
+        db<Bolinha_Protocol>(WRN) <<(&packet) << ", " << &data << endl;
+        return buf->nic()->send(buf);
     }
     int receive(void *buffer, size_t size) {
+        db<Bolinha_Protocol>(WRN) << "PASSOU AQUI" << endl;
         Buffer *rec = updated();
-        memcpy(buffer, rec->frame()->data<char>(), size);
-        _nic->free(rec);
+        Packet *recvP = rec->frame()->data<Packet>();
+        memcpy(buffer, recvP->data<void>(), size);
+        
+        rec->nic()->free(rec);
         return size;
     }
     static bool notify(const Protocol& p, Buffer *b) {
@@ -113,6 +116,26 @@ public:
     } __attribute__((packed));
 
     typedef Packet PDU;
+    struct Processing_Message {
+        unsigned short _id;
+        unsigned short _retries;
+        PDU _pdu;
+        Processing_Message() {
+        }
+        Processing_Message(unsigned short id, unsigned short retries, PDU pdu):
+            _id(id), _retries(retries), _pdu(pdu)
+        {}
+        unsigned short id() const {
+            return _id;
+        }
+        unsigned short retries() const {
+            return _retries;
+        }
+        PDU pdu() const  {
+            return _pdu;
+        }
+    };
+
 
 protected:
     NIC<Ethernet> * _nic;
@@ -120,7 +143,9 @@ protected:
     static Observed _observed;
     static const unsigned int NIC_MTU = 1500;
     static const unsigned int Bolinha_MTU = NIC_MTU - sizeof(Header);
-    static unsigned short current_id;
+    Processing_Message garaio[666];
+private:
+    //bool _retransmiting;
 };
 
 

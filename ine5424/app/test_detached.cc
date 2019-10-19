@@ -19,9 +19,12 @@ int main()
         data[3] = 'l';
         data[4] = 'o';
         data[5] = '\n';
-        bp->send(data, 1500);
+
+        Ethernet::Address peer_ip = bp->addr();
+        peer_ip[3]--;
+        bp->send(bp->addr(), peer_ip, &data, 1500);
     } else {
-        bp->receive(data, 1500);
+        bp->receive(&data, 1500);
         cout << data << endl;
     }
 
