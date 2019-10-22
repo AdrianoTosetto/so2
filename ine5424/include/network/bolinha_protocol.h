@@ -5,12 +5,20 @@
 
 #include <system/config.h>
 #include <synchronizer.h>
-#include <utility/list.h>
 
 #include <utility/bitmap.h>
 #include <machine/nic.h>
+#include <time.h>
 
 __BEGIN_SYS
+
+Semaphore *sem;
+
+void timeout() {
+    db<Thread>(WRN) << "TIMEOUT FUNCAO" << endl;
+    (*sem).v();
+}
+
 
 class Bolinha_Protocol: private NIC<Ethernet>::Observer, Concurrent_Observer<Ethernet::Buffer, Ethernet::Protocol>
 {
@@ -22,67 +30,60 @@ public:
     typedef Data_Observed<Buffer, Ethernet::Protocol> Observed;
     typedef Ethernet::Protocol Protocol;
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
-    Bolinha_Protocol(): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0))
-    {
+    Bolinha_Protocol(): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)) {
         _nic->attach(this, Prot_Bolinha);
+        
     }
-
-    int send(const Address & from, const Address & to, const void *data, size_t size) {
-
-        Buffer *buf = _nic->alloc(to, Prot_Bolinha, 0, sizeof(Header), size+sizeof(Header));
-        Packet *packet = buf->frame()->data<Packet>();
-    
-        memcpy(packet->data<void>(), data, size);
-        db<Bolinha_Protocol>(WRN) <<(&packet) << ", " << &data << endl;
-        return buf->nic()->send(buf);
+    int send(const void *data, size_t size) {
+        int bytes = _nic->send(_nic->broadcast(), Prot_Bolinha, data, size);
+        int n = 3;
+        sem = &_sem;
+        Function_Handler handler_a(&timeout);
+        Alarm alarm_a(2000000, &handler_a, 10000);
+        while(!this->_status && n > 0) {
+            db<Thread>(WRN) << "antes do sem" << endl;
+            (*sem).p();
+            bytes = _nic->send(_nic->broadcast(), Prot_Bolinha, data, size);
+            n--;
+        }
+        db<Thread>(WRN) << "depois do while" << endl;
     }
     int receive(void *buffer, size_t size) {
-        db<Bolinha_Protocol>(WRN) << "PASSOU AQUI" << endl;
         Buffer *rec = updated();
-        Packet *recvP = rec->frame()->data<Packet>();
-        memcpy(buffer, recvP->data<void>(), size);
-        
-        rec->nic()->free(rec);
+        memcpy(buffer, rec->frame()->data<char>(), size);
+        char *test = reinterpret_cast<char*>(buffer);
+        if(test[0] == 'A') {
+            db<Thread>(WRN) << "Chegou um ACK" << endl;
+            this->_status = 1;
+            (*sem).v();
+        } else {
+            char ack[2];
+            ack[0] = 'A';
+            ack[1] = '\n';
+            db<Thread>(WRN) << "Mandando um ACK" << endl;
+            int bytes = _nic->send(_nic->broadcast(), Prot_Bolinha, ack, size);
+        }
+        _nic->free(rec);
         return size;
     }
+    void timeout1() {
+        //this->sem.v();
+    }
     static bool notify(const Protocol& p, Buffer *b) {
+        db<Thread>(WRN) << "notified" << endl;
         return _observed.notify(p, b);
     }
     void update(Observed *o, const Protocol& p, Buffer *b) {
-        db<Bolinha_Protocol>(WRN) << "Teste" << endl;
+        db<Thread>(WRN) << "update" << endl;
         Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
     }
     const Address& addr() const {
         return _nic->address();
     }
-    /*unsigned int MTU() {
+    unsigned int MTU() {
         return Bolinha_MTU; // header precisa ser packed pra calcular certo o mtu
-    }*/
-
+    }
     class Header {
-    public:
-        Header() {}
-        Header(const Address& from, const Address & to, unsigned size) :
-        _from(from), _to(to), _length((htons(size))) {}
-
-        unsigned short length() const { return ntohs(_length); }
-        void length(unsigned short length) { _length = htons(length); }
-        unsigned short id() const { return ntohs(_id); }
-        const Address & from() const { return _from; }
-        void from(const Address & from){ _from = from; }
-
-        const Address & to() const { return _to; }
-        void to(const Address & to){ _to = to; }
-
-        friend Debug & operator<<(Debug & db, const Header & h) {
-            db << ",len=" << h.length()
-               << ",id="  << h.id()
-               << ",from=" << h._from
-               << ",to=" << h._to
-               << "}";
-            return db;
-        }
-
     public:    
         Address _to;
         Address _from;
@@ -94,58 +95,21 @@ public:
 
     } __attribute__((packed));
 
-    static const unsigned int MTU = 1500 - sizeof(Header);
-    typedef unsigned char Data[MTU];
-
-    class Packet: private Header 
-    {
+    class Frame: private Header {
     public: 
-        Packet() {}
-        Header * header() { return this; }
+        Frame() {
 
-        template <typename T>
-        T * data() { return reinterpret_cast<T *>(&_data); }
-
-        friend Debug & operator<<(Debug & db, const Packet & p) {
-            db << "{head=" << reinterpret_cast<const Header &>(p) << ",data=" << p._data << "}";
-            return db;
         }
-
-    private:
-        Data _data;
+        typedef unsigned char Data[];
     } __attribute__((packed));
-
-    typedef Packet PDU;
-    struct Processing_Message {
-        unsigned short _id;
-        unsigned short _retries;
-        PDU _pdu;
-        Processing_Message() {
-        }
-        Processing_Message(unsigned short id, unsigned short retries, PDU pdu):
-            _id(id), _retries(retries), _pdu(pdu)
-        {}
-        unsigned short id() const {
-            return _id;
-        }
-        unsigned short retries() const {
-            return _retries;
-        }
-        PDU pdu() const  {
-            return _pdu;
-        }
-    };
-
-
 protected:
+    int _status;
+    Semaphore _sem = Semaphore(0);
     NIC<Ethernet> * _nic;
     Address _address;
     static Observed _observed;
     static const unsigned int NIC_MTU = 1500;
     static const unsigned int Bolinha_MTU = NIC_MTU - sizeof(Header);
-    Processing_Message garaio[666];
-private:
-    //bool _retransmiting;
 };
 
 
