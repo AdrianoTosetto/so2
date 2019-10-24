@@ -18,7 +18,10 @@ void timeout() {
     db<Thread>(WRN) << "TIMEOUT FUNCAO" << endl;
     (*sem).v();
 }
-
+void polling() {
+    db<Thread>(WRN) << "Fazendo Polling" << endl;
+    (*sem).v();
+}
 
 class Bolinha_Protocol: private NIC<Ethernet>::Observer, Concurrent_Observer<Ethernet::Buffer, Ethernet::Protocol>
 {
@@ -35,18 +38,28 @@ public:
         
     }
     int send(const void *data, size_t size) {
-        int bytes = _nic->send(_nic->broadcast(), Prot_Bolinha, data, size);
+        int bytes;// = _nic->send(_nic->broadcast(), Prot_Bolinha, data, size);
         int n = 3;
         sem = &_sem;
         Function_Handler handler_a(&timeout);
-        Alarm alarm_a(2000000, &handler_a, 10000);
+        Function_Handler handler_b(&polling);
+        Alarm *alarm_a = new Alarm(2000000, &handler_a, 10000);
+        //Alarm alarm_b(200, &handler_b, 10000);
         while(!this->_status && n > 0) {
+            bytes = _nic->send(_nic->broadcast(), Prot_Bolinha, data, size);
             db<Thread>(WRN) << "antes do sem" << endl;
             (*sem).p();
-            bytes = _nic->send(_nic->broadcast(), Prot_Bolinha, data, size);
             n--;
         }
-        db<Thread>(WRN) << "depois do while" << endl;
+        delete alarm_a;
+        if (_status) {
+            db<Thread>(WRN) << "Mensagem confirmada" << endl;
+        } else  {
+            db<Thread>(WRN) << "timed out" << endl;
+            bytes = 0;
+        }
+        //db<Thread>(WRN) << "depois do while" << endl;
+        return bytes;
     }
     int receive(void *buffer, size_t size) {
         Buffer *rec = updated();
@@ -60,21 +73,24 @@ public:
             char ack[2];
             ack[0] = 'A';
             ack[1] = '\n';
+            Delay(20000000);
             db<Thread>(WRN) << "Mandando um ACK" << endl;
             int bytes = _nic->send(_nic->broadcast(), Prot_Bolinha, ack, size);
         }
         _nic->free(rec);
         return size;
     }
-    void timeout1() {
-        //this->sem.v();
-    }
     static bool notify(const Protocol& p, Buffer *b) {
         db<Thread>(WRN) << "notified" << endl;
         return _observed.notify(p, b);
     }
     void update(Observed *o, const Protocol& p, Buffer *b) {
-        db<Thread>(WRN) << "update" << endl;
+        char *data = reinterpret_cast<char*>(b->frame()->data<char>());
+        if (data[0] == 'A') {
+            db<Thread>(WRN) << "ACK recebido" << endl;
+            _status = 1;
+            (*sem).v();
+        }
         Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
     }
     const Address& addr() const {
