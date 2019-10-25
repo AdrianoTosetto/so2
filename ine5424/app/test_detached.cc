@@ -2,7 +2,7 @@
 #include <time.h>
 #include <network/bolinha_protocol.h>
 using namespace EPOS;
-
+typedef Ethernet::Address Address;
 
 OStream cout;
 
@@ -11,6 +11,7 @@ int main()
     cout << "NIC Test" << endl;
     Bolinha_Protocol *bp = new Bolinha_Protocol();
     char data[1500];
+    cout << "Meu endereco eh " << bp->addr() << endl;
     if(bp->addr()[5] % 2) { // sender
         Delay (5000000);
         data[0] = 'H';
@@ -19,12 +20,11 @@ int main()
         data[3] = 'l';
         data[4] = 'o';
         data[5] = '\n';
-
-        Ethernet::Address peer_ip = bp->addr();
-        peer_ip[3]--;
-        bp->send(bp->addr(), peer_ip, &data, 1500);
+        Address d = bp->addr();
+        d[5]--;
+        bp->send1(data, 1500, d);
     } else {
-        bp->receive(&data, 1500);
+        bp->receive1(data, 1500);
         cout << data << endl;
     }
 

@@ -213,7 +213,7 @@ public:
 
     virtual bool notify(const C & c, D * d) {
         bool notified = false;
-
+        db<Observeds>(WRN) << "Dado = " << reinterpret_cast<char*>(d) << ")" << endl;
         db<Observeds>(TRC) << "Data_Observed::notify(this=" << this << ",cond=" << c << ")" << endl;
 
         for(Element * e = _observers.head(); e; e = e->next()) {
