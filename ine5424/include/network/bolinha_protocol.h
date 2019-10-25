@@ -44,21 +44,15 @@ public:
         int n = 3; // numero de tentativas 
         sem = &_sem;
         Function_Handler handler_a(&timeout);
-        Alarm *alarm_a = new Alarm(2000000, &hand```
-        typedef unsigned char Data[Bolinha_MTU];
-        Buffer *buf = _nic->alloc(to, Prot_Bolinha, 0, sizeof(Header), size+sizeof(Header));
-        if(!buf) {
-            db<Thread>(WRN) << "Nao alocado " << addr() << endl;
-            return 0;
-        }
+        Alarm *alarm_a = new Alarm(2000000, &handler_a, 10000);
 
         /*Frame * frame = buf->frame()->data<Frame>();
         size_t s = (size >= sizeof(Frame)) ? sizeof(Frame) : size;
         memcpy(frame, data, size);*/
         db<Thread>(WRN) << "quem enviou " << addr() << "\n"
-                        << "quem recebeu " << to << "\n"
+                       // << "quem recebeu " << to << "\n"
                         << "dado enviado " << data << endl;
-        _nic->send(to, Prot_Bolinha, data, size);```ler_a, 10000);
+        _nic->send(_nic->broadcast(), Prot_Bolinha, data, size);
         while(!this->_status && n > 0) {
             bytes = _nic->send(_nic->broadcast(), Prot_Bolinha, data, size);
             (*sem).p();
@@ -87,26 +81,31 @@ public:
         _nic->free(rec);
         return size;
     }
-    int send1(const void *data, size_t size, Address& to) {
+    int send1(void *data, size_t size, Address& to) {
         //Frame f();
-        typedef unsigned char Data[Bolinha_MTU];
-        Buffer *buf = _nic->alloc(to, Prot_Bolinha, 0, sizeof(Header), size+sizeof(Header));
-        if(!buf) {
-            db<Thread>(WRN) << "Nao alocado " << addr() << endl;
-            return 0;
-        }
-
+        //typedef unsigned char Data[Bolinha_MTU];
+        //Buffer *buf = _nic->alloc(to, Prot_Bolinha, size, sizeof(Header), size+sizeof(Header));
+        Frame *f = new Frame(to, addr(), 42069, data, size);
+        db<Thread>(WRN) << "teste f data  " << (f->data<char>()) << "\n";
+        void *data1 = reinterpret_cast<void *>(f);
         /*Frame * frame = buf->frame()->data<Frame>();
         size_t s = (size >= sizeof(Frame)) ? sizeof(Frame) : size;
         memcpy(frame, data, size);*/
-        db<Thread>(WRN) << "quem enviou " << addr() << "\n"
-                        << "quem recebeu " << to << "\n"
-                        << "dado enviado " << data << endl;
-        _nic->send(to, Prot_Bolinha, data, size);
+        Frame *frrr = reinterpret_cast<Frame*>(data1);
+        db<Thread>(WRN) << "quem enviou send1 " << addr() << "\n"
+                        << "quem recebeu send1 " << to << "\n"
+                        << "dado enviado send1 " << (frrr->data<char>()) << endl;
+        _nic->send(to, Prot_Bolinha, data1, size);
     }
     int receive1(void *buffer, size_t size) {
         Buffer *rec = updated();
-        memcpy(buffer, rec->frame()->data<char>(), size);
+        db<Thread>(WRN) << "teste rec data  " << *(rec->data()) << "\n";
+        void *vrframe = reinterpret_cast<void*>(rec->frame()->data<char>());
+        Frame *rframe = reinterpret_cast<Frame*>(vrframe);
+        db<Thread>(WRN) << "quem enviou receive1 " << rframe->from() << "\n"
+                        << "id enviado receive1 " << (rframe->id()) << endl;
+
+        memcpy(buffer, rframe->data<char>(), size);
         _nic->free(rec);
         return size;
     }
@@ -148,11 +147,19 @@ public:
 
     class Frame: private Header {
     public: 
-        Frame(Address to, Address from, unsigned short id, const void* data, size_t len): 
+        Frame(Address to, Address from, unsigned short id, void* data, size_t len): 
             Header(from, id), _data(data), _len(len) {}
         typedef unsigned char Data[];
-        const void* _data;
+        void* _data;
         size_t _len;
+        unsigned short id() {
+            return _id;
+        }
+        Address from() {
+            return _from;
+        }
+        template<typename T>
+        T * data() { return reinterpret_cast<T *>(_data); }
     } __attribute__((packed));
 protected:
     int _status;
