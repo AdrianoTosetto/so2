@@ -82,15 +82,10 @@ public:
         return size;
     }
     int send1(void *data, size_t size, Address& to) {
-        //Frame f();
-        //typedef unsigned char Data[Bolinha_MTU];
-        //Buffer *buf = _nic->alloc(to, Prot_Bolinha, size, sizeof(Header), size+sizeof(Header));
-        Frame *f = new Frame(to, addr(), 42069, data, size);
+        char* haha = "haha";
+        Frame *f = new Frame(to, addr(), 42069, haha, 5);
         db<Thread>(WRN) << "teste f data  " << (f->data<char>()) << "\n";
         void *data1 = reinterpret_cast<void *>(f);
-        /*Frame * frame = buf->frame()->data<Frame>();
-        size_t s = (size >= sizeof(Frame)) ? sizeof(Frame) : size;
-        memcpy(frame, data, size);*/
         Frame *frrr = reinterpret_cast<Frame*>(data1);
         db<Thread>(WRN) << "quem enviou send1 " << addr() << "\n"
                         << "quem recebeu send1 " << to << "\n"
@@ -103,7 +98,8 @@ public:
         void *vrframe = reinterpret_cast<void*>(rec->frame()->data<char>());
         Frame *rframe = reinterpret_cast<Frame*>(vrframe);
         db<Thread>(WRN) << "quem enviou receive1 " << rframe->from() << "\n"
-                        << "id enviado receive1 " << (rframe->id()) << endl;
+                        << "id enviado receive1 " << (rframe->id()) << "\n"
+                        << "dado enviado receive1 " << (rframe->data<char>()) << endl;
 
         memcpy(buffer, rframe->data<char>(), size);
         _nic->free(rec);
