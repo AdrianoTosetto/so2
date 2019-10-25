@@ -82,26 +82,14 @@ public:
         return size;
     }
     int send1(void *data, size_t size, Address& to) {
-        char* haha = "haha";
-        Frame *f = new Frame(to, addr(), 42069, haha, 5);
-        db<Thread>(WRN) << "teste f data  " << (f->data<char>()) << "\n";
-        void *data1 = reinterpret_cast<void *>(f);
-        Frame *frrr = reinterpret_cast<Frame*>(data1);
-        db<Thread>(WRN) << "quem enviou send1 " << addr() << "\n"
-                        << "quem recebeu send1 " << to << "\n"
-                        << "dado enviado send1 " << (frrr->data<char>()) << endl;
-        _nic->send(to, Prot_Bolinha, data1, size);
+        Frame *f = new Frame(to, addr(), 42069, data, 5);
+        _nic->send(to, Prot_Bolinha, f, size);
     }
     int receive1(void *buffer, size_t size) {
         Buffer *rec = updated();
-        db<Thread>(WRN) << "teste rec data  " << *(rec->data()) << "\n";
-        void *vrframe = reinterpret_cast<void*>(rec->frame()->data<char>());
-        Frame *rframe = reinterpret_cast<Frame*>(vrframe);
-        db<Thread>(WRN) << "quem enviou receive1 " << rframe->from() << "\n"
-                        << "id enviado receive1 " << (rframe->id()) << "\n"
-                        << "dado enviado receive1 " << (rframe->data<char>()) << endl;
-
-        memcpy(buffer, rframe->data<char>(), size);
+        Frame *f = reinterpret_cast<Frame*>(rec->frame()->data<char>());
+        // Frame *rframe = reinterpret_cast<Frame*>(vrframe);
+        memcpy(buffer, f->data<char>(), size);
         _nic->free(rec);
         return size;
     }

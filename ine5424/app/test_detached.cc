@@ -20,12 +20,14 @@ int main()
         data[3] = 'l';
         data[4] = 'o';
         data[5] = '\n';
+        char* hello = "Hello\n";
         Address d = bp->addr();
         d[5]--;
-        bp->send1(data, 1500, d);
+        cout << "Dado enviado: " << hello << endl;
+        bp->send1(hello, 1500, d);
     } else {
         bp->receive1(data, 1500);
-        cout << data << endl;
+        cout << "Dado recebido: " << data << endl;
     }
 
     /*NIC<Ethernet>::Statistics stat = sp->nic()->statistics();
