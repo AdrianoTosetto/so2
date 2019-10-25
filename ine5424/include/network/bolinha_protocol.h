@@ -44,7 +44,7 @@ public:
         int n = 3; // numero de tentativas 
         sem = &_sem;
         Function_Handler handler_a(&timeout);
-        Alarm *alarm_a = new Alarm(2000000, &handler_a, 10000);
+        Alarm *alarm_a = new Alarm(200000, &handler_a, 10000);
 
         /*Frame * frame = buf->frame()->data<Frame>();
         size_t s = (size >= sizeof(Frame)) ? sizeof(Frame) : size;
@@ -71,25 +71,51 @@ public:
         Buffer *rec = updated();
         memcpy(buffer, rec->frame()->data<char>(), size);
 
-        char ack[2];
-        ack[0] = 'A'; // nosso ACK por agora é um char com c[0] = 'A'
-        ack[1] = '\n';
-        //Delay(20000000); // forçando um timeout
-        db<Thread>(WRN) << "Mandando um ACK" << endl;
-        int bytes = _nic->send(_nic->broadcast(), Prot_Bolinha, ack, size);
+        // char* ack_data = "ACK\n";
+        // Frame *ack = new Frame(addr(), f->from(), f->id(), ack_data, 0);
+        // f->flags(true);
+        // db<Thread>(WRN) << "ACK? " << f->flags() << endl;
+        // db<Thread>(WRN) << "Mandando um ACK para " << f->from() << endl;
+        // _nic->send(f->from(), Prot_Bolinha, ack, size);
         
         _nic->free(rec);
         return size;
     }
     int send1(void *data, size_t size, Address& to) {
-        Frame *f = new Frame(to, addr(), 42069, data, 5);
-        _nic->send(to, Prot_Bolinha, f, size);
+        int bytes;
+        int n = 3;
+        sem = &_sem;
+        Function_Handler handler_a(&timeout);
+        Alarm *alarm_a = new Alarm(2000000, &handler_a, n);
+        int id = 42069;
+
+        Frame *f = new Frame(to, addr(), id, data, 5);
+
+        while(!this->_status && n > 0) {
+            bytes = _nic->send(to, Prot_Bolinha, f, size);
+            (*sem).p();
+            n--;
+        }
+        delete alarm_a;
+        if (_status) {
+            db<Thread>(WRN) << "Mensagem " << id << " confirmada" << endl;
+        } else  {
+            db<Thread>(WRN) << "Falha ao enviar mensagem " << id << endl;
+            bytes = 0;
+        }
+        Delay delay(2000000);
+        return bytes;
     }
     int receive1(void *buffer, size_t size) {
         Buffer *rec = updated();
         Frame *f = reinterpret_cast<Frame*>(rec->frame()->data<char>());
-        // Frame *rframe = reinterpret_cast<Frame*>(vrframe);
         memcpy(buffer, f->data<char>(), size);
+
+        char* ack_data = "ACK\n";
+        Frame *ack = new Frame(f->from(), addr(), f->id(), ack_data, 0);
+        ack->flags(true);
+        _nic->send(f->from(), Prot_Bolinha, ack, size);
+
         _nic->free(rec);
         return size;
     }
@@ -97,10 +123,9 @@ public:
         return _observed.notify(p, b);
     }
     void update(Observed *o, const Protocol& p, Buffer *b) {
-        db<Thread>(WRN) << "passando pelo update do endereco " << addr() << endl;
-        char *data = reinterpret_cast<char*>(b->frame()->data<char>());
-        if (data[0] == 'A') { // Quando ocorre um timeout o proprio nodo que enviou o ACK printa "ACK Recebido"
-            db<Thread>(WRN) << "ACK recebido" << endl;
+        Frame *f = reinterpret_cast<Frame*>(b->frame()->data<char>());
+        if (f->flags()) {
+            db<Thread>(WRN) << "ACK " << f->id() << " recebido" << endl;
             _status = 1;
             (*sem).v();
         }
@@ -141,6 +166,12 @@ public:
         }
         Address from() {
             return _from;
+        }
+        bool flags() {
+            return _flags;
+        }
+        void flags(bool ack) {
+            _flags = ack;
         }
         template<typename T>
         T * data() { return reinterpret_cast<T *>(_data); }
