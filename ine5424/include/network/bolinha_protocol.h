@@ -32,7 +32,6 @@ class Bolinha_Protocol: private NIC<Ethernet>::Observer
 public:
     static const bool connectionless = true;
 
-    typedef Ethernet::Address Address;
     typedef Ethernet::Buffer Buffer;
     typedef Ethernet::Protocol Protocol;
 
@@ -41,32 +40,32 @@ public:
     typedef Data_Observer<Buffer, Protocol> Observer;
     typedef Data_Observed<Buffer, Protocol> Observed;
 
-    typedef unsigned int Port;
+    typedef unsigned short ID;
     typedef unsigned char Data[1500];
     
     class Address {
         public:
-            typedef Port Local;
+            typedef ID Local;
         public:
             Address() {}
-            Address(const Ethernet::Address & mac, const Port & port): _bp(bp), _port(port){}
+            Address(const Ethernet::Address & mac, const Local id): _bp(mac), _prot_id(id){}
 
-            const Bolinha_Protocol::Address & ip() const { return _ip; }
-            const Port & port() const { return _port; }
-            const Local & local() const { return _port; }
+            const Ethernet::Address & bp() const { return _bp; }
+            const ID & port() const { return _prot_id; }
+            const Local & local() const { return _prot_id; }
 
         private:
-            Bolinha_Protocol::Address _bp;
-            Port _port;
-    }
+            Ethernet::Address _bp;
+            Local _prot_id;
+    };
 
     class Header {
         public:    
-            Address _from;
+            ID _from;
             bool  _flags; // ACK
             unsigned short  _id;
         public:
-            Header(Address from, unsigned short id): 
+            Header(ID from, unsigned short id): 
             _id(id), _from(from), _flags(false)
             {}
             void flags(bool ack) {
@@ -76,12 +75,12 @@ public:
 
     class Frame: private Header {
         public: 
-            Frame(Address to, Address from, unsigned short id, void* data, size_t len): 
+            Frame(ID to, ID from, unsigned short id, const void* data, size_t len): 
                 Header(from, id), _data(data), _len(len) {}
             unsigned short id() {
                 return _id;
             }
-            Address from() {
+            ID from() {
                 return _from;
             }
             bool flags() {
@@ -93,7 +92,7 @@ public:
             template<typename T>
             T * data() { return reinterpret_cast<T *>(_data); }
         public:
-            Data _data;
+            const void* _data;
             size_t _len;
     } __attribute__((packed));
 
@@ -101,10 +100,10 @@ public:
 public:
     Bolinha_Protocol(): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)) {
         _nic->attach(this, Prot_Bolinha);
-        
+        _address = Address(_nic->address(), 1);
     }
     
-    int send(void *data, size_t size, Address& to) {
+    int send(const Address::Local & from,  const Ethernet::Address & to, void *data, size_t size, ) {
         int bytes;
         int n = 3;
         sem = &_sem;
@@ -112,7 +111,7 @@ public:
         Alarm *alarm_a = new Alarm(2000000, &handler_a, n);
         int id = 42069;
 
-        Frame *f = new Frame(to, addr(), id, data, 5);
+        Frame *f = new Frame(to, address().local(), id, data, 5);
 
         while(!this->_status && n > 0) {
             bytes = _nic->send(to, Prot_Bolinha, f, size);
@@ -130,17 +129,16 @@ public:
         return bytes;
     }
 
-    int receive(void *buffer, size_t size) {
-        Buffer *rec = updated();
-        Frame *f = reinterpret_cast<Frame*>(rec->frame()->data<char>());
+    int receive(Buffer *buffer, void* data, size_t size) {
+        Frame *f = reinterpret_cast<Frame*>(buffer->frame()->data<char>());
         memcpy(buffer, f->data<char>(), size);
 
         char* ack_data = "ACK\n";
-        Frame *ack = new Frame(f->from(), addr(), f->id(), ack_data, 0);
+        Frame *ack = new Frame(f->from(), address(), f->id(), ack_data, 0);
         ack->flags(true);
-        _nic->send(f->from(), Prot_Bolinha, ack, size);
+        _nic->send(f->from().bp(), Prot_Bolinha, ack, size);
 
-        _nic->free(rec);
+        _nic->free(buffer);
         return size;
     }
 
@@ -161,9 +159,15 @@ public:
         
         if (!notify(p, b)) b->nic()->free(b);
     }
-    const Address& addr() const {
-        return _nic->address();
+
+    NIC<Ethernet> *nic() {
+        return _nic;
     }
+
+    const Address & address() const {
+        return _address;
+    }
+
     unsigned int MTU() {
         return Bolinha_MTU; // header precisa ser packed pra calcular certo o mtu
     }

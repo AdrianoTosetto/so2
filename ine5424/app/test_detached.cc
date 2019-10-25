@@ -2,7 +2,7 @@
 #include <time.h>
 #include <network/bolinha_protocol.h>
 using namespace EPOS;
-typedef Ethernet::Address Address;
+typedef Bolinha_Protocol::Address Address;
 
 OStream cout;
 
@@ -10,9 +10,10 @@ int main()
 {
     cout << "NIC Test" << endl;
     Bolinha_Protocol *bp = new Bolinha_Protocol();
+    Communicator_Common<Bolinha_Protocol, true> * com;
     char data[1500];
-    cout << "Meu endereco eh " << bp->addr() << endl;
-    if(bp->addr()[5] % 2) { // sender
+    cout << "MAC " << bp->address().bp() << endl;
+    if(bp->address().bp()[5] % 2) { // sender
         Delay (5000000);
         data[0] = 'H';
         data[1] = 'e';
@@ -21,12 +22,17 @@ int main()
         data[4] = 'o';
         data[5] = '\n';
         char* hello = "Hello\n";
-        Address d = bp->addr();
+        Ethernet::Address d = bp->address().bp();
         d[5]--;
+        Address bp_addr = bp->address();
+        com = new Communicator_Common<Bolinha_Protocol, true>(bp_addr.local());
         cout << "Dado enviado: " << hello << endl;
-        bp->send1(hello, 1500, d);
+        com->send(bp->address().local(), d, &data, 1500);
     } else {
-        bp->receive1(data, 1500);
+        Ethernet::Address d = bp->address().bp();
+        d[5]++;
+        com = new Communicator_Common<Bolinha_Protocol, true>(bp->address().local());
+        com->receive(&data, 1500);
         cout << "Dado recebido: " << data << endl;
     }
 
