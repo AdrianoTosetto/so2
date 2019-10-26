@@ -29,42 +29,25 @@ public:
     int send(void *data, size_t size, Address& to) {
         int bytes;
         int n = 3;
+        bool status = false;
         Semaphore sem(0);
         Semaphore_Handler handler_a(&sem);
         Alarm *alarm_a = new Alarm(20*1000000, &handler_a, n);
 
-        _m.lock();
-        int id = next_id;
-        pending_messages[id] = 1;
-        while (pending_messages[(++next_id) % 1000]);
-        _m.unlock();
-
-        Frame *f = new Frame(to, addr(), id, data, 5);
+        Frame *f = new Frame(to, addr(), &status, data, 5);
         f->sem(&sem);
 
-        bool status;
-
-        _m.lock();
-        status = pending_messages[id];
-        _m.unlock();
-
-        while(status && n > 0) {
+        while(!status && n > 0) {
             bytes = _nic->send(to, Prot_Bolinha, f, size);
             sem.p();
             n--;
-            _m.lock();
-            status = pending_messages[id];
-            _m.unlock();
         }
 
         delete alarm_a;
-        if (!status) {
-            db<Thread>(WRN) << "Mensagem " << id << " confirmada" << endl;
+        if (status) {
+            db<Thread>(WRN) << "Mensagem " << &status << " confirmada" << endl;
         } else  {
-            db<Thread>(WRN) << "Falha ao enviar mensagem " << id << endl;
-            _m.lock();
-            pending_messages[id] = 0;
-            _m.unlock();
+            db<Thread>(WRN) << "Falha ao enviar mensagem " << &status << endl;
             bytes = 0;
         }
         return bytes;
@@ -91,9 +74,7 @@ public:
         if (f->flags()) {
             db<Thread>(WRN) << "ACK " << f->id() << " recebido" << endl;
             // _status = 1;
-            _m.lock();
-            pending_messages[f->id()] = 0;
-            _m.unlock();
+            CPU::tsl<bool>(*(f->id()));
             f->sem()->v();
         }
         Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
@@ -109,11 +90,11 @@ public:
         //Address _to;
         Address _from;
         bool  _flags; // ACK
-        unsigned short  _id;
+        bool*  _id;
         //unsigned short  _checksum; // verificar se o frame chegou com todos os bits corretos
         //unsigned short  _length;
 
-        Header(Address from, unsigned short id): 
+        Header(Address from, bool* id): 
         _id(id), _from(from), _flags(false)
         {}
 
@@ -123,7 +104,7 @@ public:
         void sem(Semaphore * sem) {
             _sem = sem;
         }
-        unsigned short id() {
+        bool* id() {
             return _id;
         }
         Address from() {
@@ -142,7 +123,7 @@ public:
 
     class Frame: private Header {
     public: 
-        Frame(Address to, Address from, unsigned short id, void* data, size_t len): 
+        Frame(Address to, Address from, bool* id, void* data, size_t len): 
             Header(from, id), _data(data), _len(len) {}
         typedef unsigned char Data[];
         void* _data;
@@ -154,7 +135,7 @@ public:
         void sem(Semaphore * sem) {
             _sem = sem;
         }
-        unsigned short id() {
+        bool* id() {
             return _id;
         }
         Address from() {
