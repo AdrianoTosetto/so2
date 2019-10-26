@@ -12,19 +12,6 @@
 
 __BEGIN_SYS
 
-Semaphore *sem;
-
-void timeout() {
-    db<Thread>(WRN) << "Ocorreu um timeout" << endl;
-    (*sem).v();
-}
-
-struct messages {
-    int _status;
-    int _id;
-};
-typedef struct messages messages;
-
 class Bolinha_Protocol: private NIC<Ethernet>::Observer, Concurrent_Observer<Ethernet::Buffer, Ethernet::Protocol>
 {
 public:
@@ -39,74 +26,50 @@ public:
         _nic->attach(this, Prot_Bolinha);
         
     }
-    int send(const void *data, size_t size) {
-        int bytes;// = _nic->send(_nic->broadcast(), Prot_Bolinha, data, size);
-        int n = 3; // numero de tentativas 
-        sem = &_sem;
-        Function_Handler handler_a(&timeout);
-        Alarm *alarm_a = new Alarm(200000, &handler_a, 10000);
+    int send(void *data, size_t size, Address& to) {
+        int bytes;
+        int n = 3;
+        Semaphore sem(0);
+        Semaphore_Handler handler_a(&sem);
+        Alarm *alarm_a = new Alarm(20*1000000, &handler_a, n);
 
-        /*Frame * frame = buf->frame()->data<Frame>();
-        size_t s = (size >= sizeof(Frame)) ? sizeof(Frame) : size;
-        memcpy(frame, data, size);*/
-        db<Thread>(WRN) << "quem enviou " << addr() << "\n"
-                       // << "quem recebeu " << to << "\n"
-                        << "dado enviado " << data << endl;
-        _nic->send(_nic->broadcast(), Prot_Bolinha, data, size);
-        while(!this->_status && n > 0) {
-            bytes = _nic->send(_nic->broadcast(), Prot_Bolinha, data, size);
-            (*sem).p();
+        _m.lock();
+        int id = next_id;
+        pending_messages[id] = 1;
+        while (pending_messages[(++next_id) % 1000]);
+        _m.unlock();
+
+        Frame *f = new Frame(to, addr(), id, data, 5);
+        f->sem(&sem);
+
+        bool status;
+
+        _m.lock();
+        status = pending_messages[id];
+        _m.unlock();
+
+        while(status && n > 0) {
+            bytes = _nic->send(to, Prot_Bolinha, f, size);
+            sem.p();
             n--;
+            _m.lock();
+            status = pending_messages[id];
+            _m.unlock();
         }
+
         delete alarm_a;
-        if (_status) {
-            db<Thread>(WRN) << "Mensagem confirmada" << endl;
+        if (!status) {
+            db<Thread>(WRN) << "Mensagem " << id << " confirmada" << endl;
         } else  {
-            db<Thread>(WRN) << "timed out" << endl;
+            db<Thread>(WRN) << "Falha ao enviar mensagem " << id << endl;
+            _m.lock();
+            pending_messages[id] = 0;
+            _m.unlock();
             bytes = 0;
         }
         return bytes;
     }
     int receive(void *buffer, size_t size) {
-        Buffer *rec = updated();
-        memcpy(buffer, rec->frame()->data<char>(), size);
-
-        // char* ack_data = "ACK\n";
-        // Frame *ack = new Frame(addr(), f->from(), f->id(), ack_data, 0);
-        // f->flags(true);
-        // db<Thread>(WRN) << "ACK? " << f->flags() << endl;
-        // db<Thread>(WRN) << "Mandando um ACK para " << f->from() << endl;
-        // _nic->send(f->from(), Prot_Bolinha, ack, size);
-        
-        _nic->free(rec);
-        return size;
-    }
-    int send1(void *data, size_t size, Address& to) {
-        int bytes;
-        int n = 3;
-        sem = &_sem;
-        Function_Handler handler_a(&timeout);
-        Alarm *alarm_a = new Alarm(2000000, &handler_a, n);
-        int id = 42069;
-
-        Frame *f = new Frame(to, addr(), id, data, 5);
-
-        while(!this->_status && n > 0) {
-            bytes = _nic->send(to, Prot_Bolinha, f, size);
-            (*sem).p();
-            n--;
-        }
-        delete alarm_a;
-        if (_status) {
-            db<Thread>(WRN) << "Mensagem " << id << " confirmada" << endl;
-        } else  {
-            db<Thread>(WRN) << "Falha ao enviar mensagem " << id << endl;
-            bytes = 0;
-        }
-        Delay delay(2000000);
-        return bytes;
-    }
-    int receive1(void *buffer, size_t size) {
         Buffer *rec = updated();
         Frame *f = reinterpret_cast<Frame*>(rec->frame()->data<char>());
         memcpy(buffer, f->data<char>(), size);
@@ -114,6 +77,7 @@ public:
         char* ack_data = "ACK\n";
         Frame *ack = new Frame(f->from(), addr(), f->id(), ack_data, 0);
         ack->flags(true);
+        ack->sem(f->sem());
         _nic->send(f->from(), Prot_Bolinha, ack, size);
 
         _nic->free(rec);
@@ -126,8 +90,11 @@ public:
         Frame *f = reinterpret_cast<Frame*>(b->frame()->data<char>());
         if (f->flags()) {
             db<Thread>(WRN) << "ACK " << f->id() << " recebido" << endl;
-            _status = 1;
-            (*sem).v();
+            // _status = 1;
+            _m.lock();
+            pending_messages[f->id()] = 0;
+            _m.unlock();
+            f->sem()->v();
         }
         Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
     }
@@ -149,18 +116,13 @@ public:
         Header(Address from, unsigned short id): 
         _id(id), _from(from), _flags(false)
         {}
+
         void flags(bool ack) {
             _flags = ack;
         }
-    } __attribute__((packed));
-
-    class Frame: private Header {
-    public: 
-        Frame(Address to, Address from, unsigned short id, void* data, size_t len): 
-            Header(from, id), _data(data), _len(len) {}
-        typedef unsigned char Data[];
-        void* _data;
-        size_t _len;
+        void sem(Semaphore * sem) {
+            _sem = sem;
+        }
         unsigned short id() {
             return _id;
         }
@@ -170,21 +132,53 @@ public:
         bool flags() {
             return _flags;
         }
+        Semaphore * sem() {
+            return _sem;
+        }
+    protected:
+        Semaphore * _sem;
+        
+    } __attribute__((packed));
+
+    class Frame: private Header {
+    public: 
+        Frame(Address to, Address from, unsigned short id, void* data, size_t len): 
+            Header(from, id), _data(data), _len(len) {}
+        typedef unsigned char Data[];
+        void* _data;
+        size_t _len;
+
         void flags(bool ack) {
             _flags = ack;
         }
+        void sem(Semaphore * sem) {
+            _sem = sem;
+        }
+        unsigned short id() {
+            return _id;
+        }
+        Address from() {
+            return _from;
+        }
+        bool flags() {
+            return _flags;
+        }
+        Semaphore * sem() {
+            return _sem;
+        }
+
         template<typename T>
         T * data() { return reinterpret_cast<T *>(_data); }
     } __attribute__((packed));
 protected:
-    int _status;
-    Semaphore _sem = Semaphore(0);
+    Mutex _m = Mutex();
     NIC<Ethernet> * _nic;
     Address _address;
+    bool pending_messages[1000];
+    int next_id = 0;
     static Observed _observed;
     static const unsigned int NIC_MTU = 1500;
     static const unsigned int Bolinha_MTU = NIC_MTU - sizeof(Header);
-    static messages _messages[1000];
 
 };
 

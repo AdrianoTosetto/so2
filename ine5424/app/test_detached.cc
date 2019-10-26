@@ -24,9 +24,9 @@ int main()
         Address d = bp->addr();
         d[5]--;
         cout << "Dado enviado: " << hello << endl;
-        bp->send1(hello, 1500, d);
+        bp->send(hello, 1500, d);
     } else {
-        bp->receive1(data, 1500);
+        bp->receive(data, 1500);
         cout << "Dado recebido: " << data << endl;
     }
 
