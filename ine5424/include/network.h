@@ -16,6 +16,10 @@
 #include <network/simple_protocol.h>
 #endif
 
+#ifdef __bp__
+#include <network/bolinha_protocol.h>
+#endif
+
 #ifdef __tstp__
 #include <network/tstp/tstp.h>
 #endif

@@ -6,6 +6,9 @@
 #include <system/config.h>
 #include <synchronizer.h>
 
+
+#ifdef __bp__
+
 #include <utility/bitmap.h>
 #include <machine/nic.h>
 #include <time.h>
@@ -54,16 +57,13 @@ public:
             const ID & port() const { return _prot_id; }
             const Local & local() const { return _prot_id; }
 
+            unsigned char & operator[](const size_t i) { return _bp[i]; }
         private:
             Ethernet::Address _bp;
             Local _prot_id;
     };
 
     class Header {
-        public:    
-            ID _from;
-            bool  _flags; // ACK
-            unsigned short  _id;
         public:
             Header(ID from, unsigned short id): 
             _id(id), _from(from), _flags(false)
@@ -71,11 +71,15 @@ public:
             void flags(bool ack) {
                 _flags = ack;
             }
+        public:    
+            unsigned short  _id;
+            ID _from;
+            bool  _flags; // ACK
     } __attribute__((packed));
 
     class Frame: private Header {
         public: 
-            Frame(ID to, ID from, unsigned short id, const void* data, size_t len): 
+            Frame(ID to, ID from, unsigned short id, void* data, size_t len): 
                 Header(from, id), _data(data), _len(len) {}
             unsigned short id() {
                 return _id;
@@ -92,7 +96,7 @@ public:
             template<typename T>
             T * data() { return reinterpret_cast<T *>(_data); }
         public:
-            const void* _data;
+            void* _data;
             size_t _len;
     } __attribute__((packed));
 
@@ -101,9 +105,21 @@ public:
     Bolinha_Protocol(): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)) {
         _nic->attach(this, Prot_Bolinha);
         _address = Address(_nic->address(), 1);
+        _networks[0] = this;
+    }
+
+    static void init(unsigned int unit = 0) {
+        _networks[unit] = new (SYSTEM) Bolinha_Protocol();
+    }
+
+    static Bolinha_Protocol * get_by_nic(unsigned int unit) {
+        if(unit >= Traits<Ethernet>::UNITS) {
+            return 0;
+        } else
+            return _networks[unit];
     }
     
-    int send(const Address::Local & from,  const Ethernet::Address & to, void *data, size_t size, ) {
+    int send(const Address::Local & from, const Address & to, void *data, size_t size) {
         int bytes;
         int n = 3;
         sem = &_sem;
@@ -111,10 +127,10 @@ public:
         Alarm *alarm_a = new Alarm(2000000, &handler_a, n);
         int id = 42069;
 
-        Frame *f = new Frame(to, address().local(), id, data, 5);
+        Frame *f = new Frame(to.bp(), address().local(), id, data, 5);
 
         while(!this->_status && n > 0) {
-            bytes = _nic->send(to, Prot_Bolinha, f, size);
+            bytes = _nic->send(to.bp(), Prot_Bolinha, f, size);
             (*sem).p();
             n--;
         }
@@ -129,14 +145,14 @@ public:
         return bytes;
     }
 
-    int receive(Buffer *buffer, void* data, size_t size) {
+    int receive(Buffer *buffer, Address * from, void* data, size_t size) {
         Frame *f = reinterpret_cast<Frame*>(buffer->frame()->data<char>());
         memcpy(buffer, f->data<char>(), size);
 
-        char* ack_data = "ACK\n";
-        Frame *ack = new Frame(f->from(), address(), f->id(), ack_data, 0);
+        char ack_data = 'A';
+        Frame *ack = new Frame(f->from(), address().local(), f->id(), &ack_data, 0);
         ack->flags(true);
-        _nic->send(f->from().bp(), Prot_Bolinha, ack, size);
+        _nic->send(f->from(), Prot_Bolinha, ack, size);
 
         _nic->free(buffer);
         return size;
@@ -181,11 +197,14 @@ protected:
     static const unsigned int NIC_MTU = 1500;
     static const unsigned int Bolinha_MTU = NIC_MTU - sizeof(Header);
     static messages _messages[1000];
+    static Bolinha_Protocol * _networks[Traits<Ethernet>::UNITS];
 
 };
 
 
 
 __END_SYS
+
+#endif
 
 #endif

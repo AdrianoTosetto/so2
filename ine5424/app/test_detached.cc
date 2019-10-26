@@ -9,8 +9,8 @@ OStream cout;
 int main()
 {
     cout << "NIC Test" << endl;
-    Bolinha_Protocol *bp = new Bolinha_Protocol();
-    Communicator_Common<Bolinha_Protocol, true> * com;
+    Bolinha_Protocol::init(0);
+    Bolinha_Protocol * bp = Bolinha_Protocol::get_by_nic(0);
     char data[1500];
     cout << "MAC " << bp->address().bp() << endl;
     if(bp->address().bp()[5] % 2) { // sender
@@ -21,18 +21,15 @@ int main()
         data[3] = 'l';
         data[4] = 'o';
         data[5] = '\n';
-        char* hello = "Hello\n";
-        Ethernet::Address d = bp->address().bp();
+        Address d = bp->address();
+        Port<Bolinha_Protocol> * com = new Port<Bolinha_Protocol>(1);
         d[5]--;
-        Address bp_addr = bp->address();
-        com = new Communicator_Common<Bolinha_Protocol, true>(bp_addr.local());
-        cout << "Dado enviado: " << hello << endl;
-        com->send(bp->address().local(), d, &data, 1500);
+        com->send(d, &data, 1500);
     } else {
-        Ethernet::Address d = bp->address().bp();
-        d[5]++;
-        com = new Communicator_Common<Bolinha_Protocol, true>(bp->address().local());
-        com->receive(&data, 1500);
+        Address from = bp->address();
+        from[5]++;
+        Port<Bolinha_Protocol> * com= new Port<Bolinha_Protocol>(1);
+        com->receive(&from, &data, 1500);
         cout << "Dado recebido: " << data << endl;
     }
 
