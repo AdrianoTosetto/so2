@@ -40,6 +40,7 @@ public:
             Address(const Ethernet::Address & mac, const Local id): _bp(mac), _prot_id(id){}
 
             const Ethernet::Address & bp() const { return _bp; }
+            void bp(Ethernet::Address bp) {_bp = bp; }
             const ID & port() const { return _prot_id; }
             const Local & local() const { return _prot_id; }
 
@@ -86,8 +87,8 @@ public:
 
     class Frame: private Header {
         public: 
-            Frame(ID from, bool *id, void* data, size_t len): 
-                Header(from, id), _data(data), _len(len) {}
+            Frame(ID from, bool *id, size_t len): 
+                Header(from, id), _len(len) {}
             bool *id() {
                 return _id;
             }
@@ -109,7 +110,7 @@ public:
             template<typename T>
             T * data() { return reinterpret_cast<T *>(_data); }
         public:
-            void* _data;
+            Data _data;
             size_t _len;
     } __attribute__((packed));
 public:
@@ -118,8 +119,9 @@ public:
 
     Bolinha_Protocol(): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0))
     {
-        _address = Address(_nic->address(), 1);
         _nic->attach(this, NIC<Ethernet>::PROTO_SP);
+        _address.bp(_nic->address());
+        _networks[0] = this;
     }
 
     static Bolinha_Protocol * get_by_nic(unsigned int unit) {
@@ -137,20 +139,20 @@ public:
 
     static int receive(Buffer *buffer, Address * from, void* data, size_t size);
 
-    static void attach(Observer * obs, const Protocol & prot) { _observed.attach(obs, prot); }
-    static void detach(Observer * obs, const Protocol & prot) { _observed.detach(obs, prot); }
+    static void attach(Observer * obs, const ID & prot) { _observed.attach(obs, prot); }
+    static void detach(Observer * obs, const ID & prot) { _observed.detach(obs, prot); }
 
-    static bool notify(const Protocol& p, Buffer *b) {
+    static bool notify(const ID& p, Buffer *b) {
         return _observed.notify(p, b);
     }
 
-    void update(Observed *o, const Protocol& p, Buffer *b);
+    void update(Observed *o, const ID& p, Buffer *b);
 
     NIC<Ethernet> *nic() {
         return _nic;
     }
 
-    const Address & address() const {
+    const Address & address() {
         return _address;
     }
 
