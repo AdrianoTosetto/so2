@@ -7,7 +7,7 @@
 #include <synchronizer.h>
 
 
-#ifdef __bp__
+#ifdef __ipv4__
 
 #include <utility/bitmap.h>
 #include <machine/nic.h>
@@ -15,23 +15,17 @@
 
 __BEGIN_SYS
 
-Semaphore *sem;
 
+
+Semaphore *sem;
 void timeout() {
     db<Thread>(WRN) << "Ocorreu um timeout" << endl;
     (*sem).v();
 }
 
-struct messages {
-    int _status;
-    int _id;
-};
-typedef struct messages messages;
 
 class Bolinha_Protocol: private NIC<Ethernet>::Observer
 {
-    friend class Network_Common;
-
 public:
     static const bool connectionless = true;
 
@@ -101,29 +95,43 @@ public:
     } __attribute__((packed));
 
 
+
 public:
-    Bolinha_Protocol(): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)) {
-        _nic->attach(this, Prot_Bolinha);
+
+    Bolinha_Protocol(): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0))
+    {
         _address = Address(_nic->address(), 1);
-        _networks[0] = this;
+        _nic->attach(this, NIC<Ethernet>::PROTO_SP);
+        _networks[0] = new (SYSTEM) Bolinha_Protocol();
     }
-    int send(const Address::Local & from, const Address & to, void *data, size_t size) {
-        int bytes;
+
+    static Bolinha_Protocol * get_by_nic(unsigned int unit) {
+        if(unit >= Traits<Ethernet>::UNITS) {
+            db<Bolinha_Protocol>(WRN) << "Bolinha_Protocol::get_by_nic: requested unit (" << unit << ") does not exist!" << endl;
+            return 0;
+        } else
+            return _networks[unit];
+    }
+
+    ~Bolinha_Protocol();
+    static int send(const Address::Local & from, const Address & to, const void *data, size_t size) {
+        Bolinha_Protocol *bp = Bolinha_Protocol::get_by_nic(0);
+        int bytes = 0;
         int n = 3;
-        sem = &_sem;
+        sem = &bp->sem();
         Function_Handler handler_a(&timeout);
         Alarm *alarm_a = new Alarm(2000000, &handler_a, n);
         int id = 42069;
 
-        Frame *f = new Frame(to.bp(), address().local(), id, data, 5);
+        Frame *f = new Frame(to.bp(), bp->address().local(), id, &data, 5);
 
-        while(!this->_status && n > 0) {
-            bytes = _nic->send(to.bp(), Prot_Bolinha, f, size);
-            (*sem).p();
+        while(!bp->_status && n > 0) {
+            bytes = bp->nic()->send(to.bp(), bp->Prot_Bolinha, f, size);
+            bp->_sem.p();
             n--;
         }
         delete alarm_a;
-        if (_status) {
+        if (bp->_status) {
             db<Thread>(WRN) << "Mensagem " << id << " confirmada" << endl;
         } else  {
             db<Thread>(WRN) << "Falha ao enviar mensagem " << id << endl;
@@ -133,16 +141,17 @@ public:
         return bytes;
     }
 
-    int receive(Buffer *buffer, Address * from, void* data, size_t size) {
+    static int receive(Buffer *buffer, Address * from, void* data, size_t size) {
+        Bolinha_Protocol *bp = Bolinha_Protocol::get_by_nic(0);
         Frame *f = reinterpret_cast<Frame*>(buffer->frame()->data<char>());
         memcpy(buffer, f->data<char>(), size);
 
         char ack_data = 'A';
-        Frame *ack = new Frame(f->from(), address().local(), f->id(), &ack_data, 0);
+        Frame *ack = new Frame(f->from(), bp->address().local(), f->id(), &ack_data, 0);
         ack->flags(true);
-        _nic->send(f->from(), Prot_Bolinha, ack, size);
+        bp->nic()->send(f->from(), bp->Prot_Bolinha, ack, size);
 
-        _nic->free(buffer);
+        bp->nic()->free(buffer);
         return size;
     }
 
@@ -158,7 +167,7 @@ public:
         if (f->flags()) {
             db<Thread>(WRN) << "ACK " << f->id() << " recebido" << endl;
             _status = 1;
-            (*sem).v();
+            _sem.v();
         }
         
         if (!notify(p, b)) b->nic()->free(b);
@@ -176,6 +185,10 @@ public:
         return Bolinha_MTU; // header precisa ser packed pra calcular certo o mtu
     }
 
+    Semaphore sem() {
+        return _sem;
+    }
+
 protected:
     int _status;
     Semaphore _sem = Semaphore(0);
@@ -184,7 +197,6 @@ protected:
     static Observed _observed;
     static const unsigned int NIC_MTU = 1500;
     static const unsigned int Bolinha_MTU = NIC_MTU - sizeof(Header);
-    static messages _messages[1000];
     static Bolinha_Protocol * _networks[Traits<Ethernet>::UNITS];
 
 };

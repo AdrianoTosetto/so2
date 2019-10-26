@@ -98,7 +98,6 @@ namespace EPOS {
 #define __AES_H                 __HEADER_MACH(aes)
 #define __ipv4__
 #define __sp__
-#define __bp__
 #define __tstp__
 
 #define __KEYPAD_H              __HEADER_TRAN(keypad)

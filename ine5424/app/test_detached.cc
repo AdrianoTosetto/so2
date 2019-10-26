@@ -9,7 +9,7 @@ OStream cout;
 int main()
 {
     cout << "NIC Test" << endl;
-    Bolinha_Protocol *bp = new Bolinha_Protocol();
+    Bolinha_Protocol* bp = new Bolinha_Protocol();
     char data[1500];
     cout << "MAC " << bp->address().bp() << endl;
     if(bp->address().bp()[5] % 2) { // sender
