@@ -22,28 +22,39 @@ public:
     typedef Data_Observed<Buffer, Ethernet::Protocol> Observed;
     typedef Ethernet::Protocol Protocol;
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
-    Bolinha_Protocol(): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)) {
+    Bolinha_Protocol(short port = 5000): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)) {
         _nic->attach(this, Prot_Bolinha);
-        
+        bool res = CPU::finc<char>(_ports[port]);
+        if (!res) {
+            db<Thread>(WRN) << "Porta adquirida com sucesso!" << endl;
+            _using_port = port;
+        } else {
+            db<Thread>(WRN) << "Falha ao adquirir porta!" << endl;
+        }
     }
-    int send(void *data, size_t size, Address& to) {
+    virtual ~Bolinha_Protocol() {
+        CPU::fdec<char>(_ports[_using_port]);
+    }
+    int send(void *data, size_t size, Address& to, short port_receiver) {
         int bytes;
         int n = 3;
         bool status = false;
         Semaphore sem(0);
         Semaphore_Handler handler_a(&sem);
-        Alarm *alarm_a = new Alarm(20*1000000, &handler_a, n);
 
-        Frame *f = new Frame(to, addr(), &status, data, 5);
-        f->sem(&sem);
+        {
+            Alarm alarm_a = Alarm(20*1000000, &handler_a, n);
 
-        while(!status && n > 0) {
-            bytes = _nic->send(to, Prot_Bolinha, f, size);
-            sem.p();
-            n--;
+            Frame *f = new Frame(to, addr(), &status, data, _using_port, port_receiver, 5);
+            f->sem(&sem);
+
+            while(!status && n > 0) {
+                bytes = _nic->send(to, Prot_Bolinha, f, size);
+                sem.p();
+                n--;
+            }
+            delete f;
         }
-
-        delete alarm_a;
         if (status) {
             db<Thread>(WRN) << "Mensagem " << &status << " confirmada" << endl;
         } else  {
@@ -57,12 +68,17 @@ public:
         Frame *f = reinterpret_cast<Frame*>(rec->frame()->data<char>());
         memcpy(buffer, f->data<char>(), size);
 
-        char* ack_data = "ACK\n";
-        Frame *ack = new Frame(f->from(), addr(), f->id(), ack_data, 0);
+        char* ack_data;// = "ACK\n";
+        ack_data[0] = 'A';
+        ack_data[1] = 'C';
+        ack_data[2] = 'K';
+        ack_data[3] = '\n';
+        Frame *ack = new Frame(f->from(), addr(), f->id(), ack_data, _using_port, f->port_sender(), 0);
         ack->flags(true);
         ack->sem(f->sem());
         _nic->send(f->from(), Prot_Bolinha, ack, size);
 
+        delete f;
         _nic->free(rec);
         return size;
     }
@@ -71,11 +87,15 @@ public:
     }
     void update(Observed *o, const Protocol& p, Buffer *b) {
         Frame *f = reinterpret_cast<Frame*>(b->frame()->data<char>());
+        if (f->port_receiver() != _using_port) {
+            delete f;
+            return;
+        }
         if (f->flags()) {
             db<Thread>(WRN) << "ACK " << f->id() << " recebido" << endl;
-            // _status = 1;
             CPU::tsl<bool>(*(f->id()));
             f->sem()->v();
+            delete f;
         }
         Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
     }
@@ -87,15 +107,9 @@ public:
     }
     class Header {
     public:    
-        //Address _to;
-        Address _from;
-        bool  _flags; // ACK
-        bool*  _id;
-        //unsigned short  _checksum; // verificar se o frame chegou com todos os bits corretos
-        //unsigned short  _length;
 
-        Header(Address from, bool* id): 
-        _id(id), _from(from), _flags(false)
+        Header(Address from, bool* id, short port_sender, short port_receiver): 
+        _from(from), _id(id), _flags(false), _port_sender(port_sender), _port_receiver(port_receiver)
         {}
 
         void flags(bool ack) {
@@ -116,18 +130,25 @@ public:
         Semaphore * sem() {
             return _sem;
         }
+        //Address _to;
+        Address _from;
+        bool*  _id;
+        bool  _flags; // ACK
+        //unsigned short  _checksum; // verificar se o frame chegou com todos os bits corretos
+        //unsigned short  _length;
     protected:
         Semaphore * _sem;
-        
+        short _port_sender;
+        short _port_receiver;
     } __attribute__((packed));
 
     class Frame: private Header {
     public: 
-        Frame(Address to, Address from, bool* id, void* data, size_t len): 
-            Header(from, id), _data(data), _len(len) {}
+        Frame(Address to, Address from, bool* id, void* data, short port_sender, short port_receiver,size_t len): 
+            Header(from, id, port_sender, port_receiver), _len(len), _data(data) {}
         typedef unsigned char Data[];
-        void* _data;
         size_t _len;
+        void* _data;
 
         void flags(bool ack) {
             _flags = ack;
@@ -147,23 +168,28 @@ public:
         Semaphore * sem() {
             return _sem;
         }
-
         template<typename T>
         T * data() { return reinterpret_cast<T *>(_data); }
+        short port_sender() {
+            return _port_sender;
+        }
+        short port_receiver() {
+            return _port_receiver;
+        }
     } __attribute__((packed));
 protected:
-    Mutex _m = Mutex();
     NIC<Ethernet> * _nic;
     Address _address;
-    bool pending_messages[1000];
-    int next_id = 0;
+    static Mutex _m;
+    static char _ports[1000];
     static Observed _observed;
     static const unsigned int NIC_MTU = 1500;
     static const unsigned int Bolinha_MTU = NIC_MTU - sizeof(Header);
+    short _using_port = -1;
 
 };
 
-
+// bool Bolinha_Protocol::_ports[] = {0};
 
 __END_SYS
 

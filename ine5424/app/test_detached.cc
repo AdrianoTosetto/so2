@@ -9,10 +9,11 @@ OStream cout;
 int main()
 {
     cout << "NIC Test" << endl;
-    Bolinha_Protocol *bp = new Bolinha_Protocol();
+    NIC<Ethernet> *nic = Traits<Ethernet>::DEVICES::Get<0>::Result::get(0);
+    cout << "Meu endereco eh " << nic->address() << endl;
     char data[1500];
-    cout << "Meu endereco eh " << bp->addr() << endl;
-    if(bp->addr()[5] % 2) { // sender
+    if(nic->address()[5] % 2) { // sender
+        Bolinha_Protocol *bp = new Bolinha_Protocol(5000);
         Delay (5000000);
         data[0] = 'H';
         data[1] = 'e';
@@ -24,8 +25,9 @@ int main()
         Address d = bp->addr();
         d[5]--;
         cout << "Dado enviado: " << hello << endl;
-        bp->send(hello, 1500, d);
+        bp->send(hello, 1500, d, 5001);
     } else {
+        Bolinha_Protocol *bp = new Bolinha_Protocol(5001);
         bp->receive(data, 1500);
         cout << "Dado recebido: " << data << endl;
     }
