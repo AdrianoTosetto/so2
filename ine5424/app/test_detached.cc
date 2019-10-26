@@ -9,11 +9,12 @@ OStream cout;
 int main()
 {
     cout << "NIC Test" << endl;
-    Bolinha_Protocol* bp = new Bolinha_Protocol();
+    Bolinha_Protocol::init(0);
+    Bolinha_Protocol *bp = Bolinha_Protocol::get_by_nic(0);
     char data[1500];
     cout << "MAC " << bp->address().bp() << endl;
     if(bp->address().bp()[5] % 2) { // sender
-        Delay (5000000);
+        Delay (500000);
         data[0] = 'H';
         data[1] = 'e';
         data[2] = 'l';
@@ -24,7 +25,9 @@ int main()
         Port<Bolinha_Protocol> * com;
         com = new Port<Bolinha_Protocol>(1);
         d[5]--;
+        cout << "Dado Enviado: " << data << endl;
         com->send(d, &data, 1500);
+
     } else {
         Address from = bp->address();
         from[5]++;
