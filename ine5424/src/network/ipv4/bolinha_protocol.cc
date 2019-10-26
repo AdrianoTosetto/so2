@@ -17,20 +17,20 @@ int Bolinha_Protocol::send(const Address::Local & from, const Address & to, cons
     Semaphore_Handler handler_a(&sem);
     Alarm *alarm_a = new Alarm(20*1000000, &handler_a, n);
 
-    Frame *f = new Frame(bp->address().local(), &status, &data, 5);
+    Frame *f = new Frame(from, &status, &data, 5);
     f->sem(&sem);
 
     while(!status && n > 0) {
-        bytes = bp->nic()->send(to.local(), bp->Prot_Bolinha, f, size);
+        bytes = bp->nic()->send(to.bp(), bp->Prot_Bolinha, reinterpret_cast<void*> (f), size);
         sem.p();
         n--;
     }
 
     delete alarm_a;
     if (status) {
-        db<Thread>(WRN) << "Mensagem " << &status << " confirmada" << endl;
+        db<Bolinha_Protocol>(WRN) << "Mensagem " << &status << " confirmada" << endl;
     } else  {
-        db<Thread>(WRN) << "Falha ao enviar mensagem " << &status << endl;
+        db<Bolinha_Protocol>(WRN) << "Falha ao enviar mensagem " << &status << endl;
         bytes = 0;
     }
     return bytes;
@@ -38,13 +38,14 @@ int Bolinha_Protocol::send(const Address::Local & from, const Address & to, cons
 
 int Bolinha_Protocol::receive(Buffer *buffer, Address * from, void* data, size_t size) {
     Bolinha_Protocol *bp = Bolinha_Protocol::get_by_nic(0);
+    db<Bolinha_Protocol>(WRN) << "Mensagem " << buffer->frame()->data<char>() << " confirmada" << endl;
     Frame *f = reinterpret_cast<Frame*>(buffer->frame()->data<char>());
     memcpy(buffer, f->data<char>(), size);
 
     char ack_data = 'A';
-    Frame *ack = new Frame(bp->address().local(), f->id(), &ack_data, 0);
+    Frame *ack = new Frame(f->from(), f->id(), &ack_data, 0);
     ack->sem(f->sem());
-    bp->nic()->send(f->from(), bp->Prot_Bolinha, ack, size);
+    bp->nic()->send(from->bp(), bp->Prot_Bolinha, ack, size);
     bp->nic()->free(buffer);
     return size;
 }

@@ -10,11 +10,11 @@ int main()
 {
     cout << "NIC Test" << endl;
     Bolinha_Protocol::init(0);
-    Bolinha_Protocol *bp = Bolinha_Protocol::get_by_nic(0);
+    Bolinha_Protocol *bp = new Bolinha_Protocol();
     char data[1500];
     cout << "MAC " << bp->address().bp() << endl;
     if(bp->address().bp()[5] % 2) { // sender
-        Delay (500000);
+        Delay (5000000);
         data[0] = 'H';
         data[1] = 'e';
         data[2] = 'l';

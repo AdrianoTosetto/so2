@@ -29,11 +29,11 @@ public:
     typedef typename Channel::Address::Local Local_Address;
 
 protected:
-
-public:
     Communicator_Common(const Local_Address & local): _local(local) {
         Channel::attach(this, local);
     }
+
+public:
     ~Communicator_Common() {
         Channel::detach(this, _local);
     }
