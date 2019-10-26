@@ -107,18 +107,6 @@ public:
         _address = Address(_nic->address(), 1);
         _networks[0] = this;
     }
-
-    static void init(unsigned int unit = 0) {
-        _networks[unit] = new (SYSTEM) Bolinha_Protocol();
-    }
-
-    static Bolinha_Protocol * get_by_nic(unsigned int unit) {
-        if(unit >= Traits<Ethernet>::UNITS) {
-            return 0;
-        } else
-            return _networks[unit];
-    }
-    
     int send(const Address::Local & from, const Address & to, void *data, size_t size) {
         int bytes;
         int n = 3;

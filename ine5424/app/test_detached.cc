@@ -9,8 +9,7 @@ OStream cout;
 int main()
 {
     cout << "NIC Test" << endl;
-    Bolinha_Protocol::init(0);
-    Bolinha_Protocol * bp = Bolinha_Protocol::get_by_nic(0);
+    Bolinha_Protocol *bp = new Bolinha_Protocol();
     char data[1500];
     cout << "MAC " << bp->address().bp() << endl;
     if(bp->address().bp()[5] % 2) { // sender
@@ -22,13 +21,15 @@ int main()
         data[4] = 'o';
         data[5] = '\n';
         Address d = bp->address();
-        Port<Bolinha_Protocol> * com = new Port<Bolinha_Protocol>(1);
+        Port<Bolinha_Protocol> * com;
+        com = new Port<Bolinha_Protocol>(1);
         d[5]--;
         com->send(d, &data, 1500);
     } else {
         Address from = bp->address();
         from[5]++;
-        Port<Bolinha_Protocol> * com= new Port<Bolinha_Protocol>(1);
+        Port<Bolinha_Protocol> * com;
+        com = new Port<Bolinha_Protocol>(1);
         com->receive(&from, &data, 1500);
         cout << "Dado recebido: " << data << endl;
     }
