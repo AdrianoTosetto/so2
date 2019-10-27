@@ -9,12 +9,11 @@ OStream cout;
 
 NIC<Ethernet> *nic = Traits<Ethernet>::DEVICES::Get<0>::Result::get(0);
 char data[1500];
-
-int sender(short port) {
-    Bolinha_Protocol *bp = new Bolinha_Protocol(port);
+int sender(int port) {
     Delay (5000000);
+    Bolinha_Protocol * bp = new Bolinha_Protocol(port);
     char *hello;
-    if (port == 6000) {
+    if (port == 5000) {
        hello = "Hello\n";
     } else {
         hello = "olleH\n";
@@ -25,10 +24,10 @@ int sender(short port) {
     return bp->send(hello, 1500, d, port);
 }
 
-int receiver(short port) {
-    Bolinha_Protocol *bp = new Bolinha_Protocol(port);
+int receiver(int rport) {
+    Bolinha_Protocol * bp = new Bolinha_Protocol(rport);
     bp->receive(data, 1500);
-    cout << "Dado recebido: " << data << endl;
+    cout << "Dado recebido: " << data << ", pela porta: " << rport << endl;
     return 1;
 }
 
@@ -39,11 +38,12 @@ int main()
     cout << "NIC Test" << endl;
     cout << "Meu endereco eh " << nic->address() << endl;
     if(nic->address()[5] % 2) { // sender
-        sender(5000);
-        sender(6000);
+        new Thread(&sender, 5000);
+        new Thread(&sender, 5001);
     } else {
-       receiver(5000);
-       receiver(6000);
+        //Binds nas portas 5000 e 5001 para receber
+        new Thread(&receiver, 5001);
+        new Thread(&receiver, 5000);
     }
 
     /*NIC<Ethernet>::Statistics stat = sp->nic()->statistics();
