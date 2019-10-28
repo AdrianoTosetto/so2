@@ -9,7 +9,7 @@
 #include <utility/bitmap.h>
 #include <machine/nic.h>
 #include <time.h>
-#include <queue.h>
+#include <utility/queue.h>
 
 
 __BEGIN_SYS
@@ -25,7 +25,11 @@ typedef struct Frame_Track FT;
 
 class Bolinha_Protocol: private NIC<Ethernet>::Observer, Concurrent_Observer<Ethernet::Buffer, Ethernet::Protocol>
 {
+
 public:
+    static const unsigned int TIMEOUT = Traits<Bolinha_Protocol>::TIMEOUT;
+    static const unsigned int RETRIES = Traits<Bolinha_Protocol>::RETRIES;
+    
     typedef Ethernet::Address MAC_Address;
     typedef Ethernet::Address Address;
     typedef Ethernet::Buffer Buffer;
@@ -37,10 +41,10 @@ public:
         _nic->attach(this, Prot_Bolinha);
         bool res = CPU::tsl<char>(_ports[port]);
         if (!res) {
-            db<Thread>(WRN) << "Porta adquirida com sucesso!" << endl;
+            db<Bolinha_Protocol>(WRN) << "Porta adquirida com sucesso!" << endl;
             _using_port = port;
         } else {
-            db<Thread>(WRN) << "Falha ao adquirir porta!" << endl;
+            db<Bolinha_Protocol>(WRN) << "Falha ao adquirir porta!" << endl;
         }
     }
     virtual ~Bolinha_Protocol() {
@@ -48,19 +52,20 @@ public:
     }
     int send(void *data, size_t size, Address& to, short port_receiver) {
         int bytes;
-        int n = 3;
+        int n = RETRIES;
         bool result;
         bool status = false;
         {
 
             Semaphore sem(0);
             Semaphore_Handler handler_a(&sem);
-            Alarm alarm_a = Alarm(2*1000000, &handler_a, n);
+            Alarm alarm_a = Alarm(TIMEOUT, &handler_a, n);
 
             Frame *f = new Frame(to, addr(), CPU::finc<short int>(_packet_count), &status, data, _using_port, port_receiver, 5);
             f->sem(&sem);
 
             while(!status && n > 0) {
+                db<Bolinha_Protocol>(WRN) << "Attempting to send " << n << endl;
                 bytes = _nic->send(to, Prot_Bolinha, f, size);
                 sem.p();
                 n--;
@@ -70,9 +75,9 @@ public:
             delete f;
         }
         if (result) {
-            db<Thread>(WRN) << "Mensagem " << &status << " confirmada" << endl;
+            db<Bolinha_Protocol>(WRN) << "Mensagem " << &status << " confirmada" << endl;
         } else  {
-            db<Thread>(WRN) << "Falha ao enviar mensagem " << &status << endl;
+            db<Bolinha_Protocol>(WRN) << "Falha ao enviar mensagem " << &status << endl;
             bytes = 0;
         }
         return bytes;
@@ -102,7 +107,7 @@ public:
             return;
         }
         if (f->flags()) {
-            db<Thread>(WRN) << "ACK " << f->frame_id() << " recebido" << endl;
+            db<Bolinha_Protocol>(WRN) << "ACK " << f->frame_id() << " recebido" << endl;
             if (!CPU::tsl<bool>(*(f->status())))
                 f->sem()->v();
             else
@@ -206,7 +211,6 @@ protected:
     static const unsigned int Bolinha_MTU = NIC_MTU - sizeof(Header);
     short _using_port = -1;
     short _packet_count = 0;
-    Thread _packet_monitor;
 };
 
 // bool Bolinha_Protocol::_ports[] = {0};
