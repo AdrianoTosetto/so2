@@ -24,7 +24,7 @@ public:
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
     Bolinha_Protocol(short port = 5000): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)) {
         _nic->attach(this, Prot_Bolinha);
-        bool res = CPU::finc<char>(_ports[port]);
+        bool res = CPU::tsl<char>(_ports[port]);
         if (!res) {
             db<Thread>(WRN) << "Porta adquirida com sucesso!" << endl;
             _using_port = port;
@@ -38,12 +38,13 @@ public:
     int send(void *data, size_t size, Address& to, short port_receiver) {
         int bytes;
         int n = 3;
+        bool result;
         bool status = false;
-        Semaphore sem(0);
-        Semaphore_Handler handler_a(&sem);
-
         {
-            Alarm alarm_a = Alarm(20*1000000, &handler_a, n);
+
+            Semaphore sem(0);
+            Semaphore_Handler handler_a(&sem);
+            Alarm alarm_a = Alarm(2*1000000, &handler_a, n);
 
             Frame *f = new Frame(to, addr(), &status, data, _using_port, port_receiver, 5);
             f->sem(&sem);
@@ -53,9 +54,11 @@ public:
                 sem.p();
                 n--;
             }
+
+            result = CPU::tsl<bool>(status);
             delete f;
         }
-        if (status) {
+        if (result) {
             db<Thread>(WRN) << "Mensagem " << &status << " confirmada" << endl;
         } else  {
             db<Thread>(WRN) << "Falha ao enviar mensagem " << &status << endl;
@@ -68,11 +71,7 @@ public:
         Frame *f = reinterpret_cast<Frame*>(rec->frame()->data<char>());
         memcpy(buffer, f->data<char>(), size);
 
-        char* ack_data;// = "ACK\n";
-        ack_data[0] = 'A';
-        ack_data[1] = 'C';
-        ack_data[2] = 'K';
-        ack_data[3] = '\n';
+        char* ack_data = (char*) "ACK\n";
         Frame *ack = new Frame(f->from(), addr(), f->id(), ack_data, _using_port, f->port_sender(), 0);
         ack->flags(true);
         ack->sem(f->sem());
@@ -93,8 +92,10 @@ public:
         }
         if (f->flags()) {
             db<Thread>(WRN) << "ACK " << f->id() << " recebido" << endl;
-            CPU::tsl<bool>(*(f->id()));
-            f->sem()->v();
+            if (!CPU::tsl<bool>(*(f->id())))
+                f->sem()->v();
+            else
+                CPU::fdec<bool>(*(f->id()));
             delete f;
         }
         Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
