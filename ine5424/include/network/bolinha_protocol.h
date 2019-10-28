@@ -65,7 +65,7 @@ public:
             f->sem(&sem);
 
             while(!status && n > 0) {
-                db<Bolinha_Protocol>(WRN) << "Attempting to send " << n << endl;
+                db<Bolinha_Protocol>(WRN) << "Attempting to send " << n << " through port: " << port_receiver  << endl;
                 bytes = _nic->send(to, Prot_Bolinha, f, size);
                 sem.p();
                 n--;

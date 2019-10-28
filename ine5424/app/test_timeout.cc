@@ -9,20 +9,25 @@ OStream cout;
 
 NIC<Ethernet> *nic = Traits<Ethernet>::DEVICES::Get<0>::Result::get(0);
 char data[1500];
-int sender() {
+int sender(int port) {
     Delay (5000000);
-    Bolinha_Protocol * bp = new Bolinha_Protocol();
-    char *hello = "Hello\n";
+    Bolinha_Protocol * bp = new Bolinha_Protocol(port);
+    char *hello;
+    if (port == 5000) {
+        hello = "Hello\n";
+    } else {
+        hello = "olleH\n";
+    }
     Address d = bp->addr();
     d[5]--;
-    cout << "Dado enviado: " << hello << ", para a porta: "<< 5000 << endl;
-    return bp->send(hello, 1500, d, 5000);
+    cout << "Dado enviado: " << hello << ", para a porta: "<< port << endl;
+    return bp->send(hello, 1500, d, port);
 }
 
-int receiver() {
-    Bolinha_Protocol * bp = new Bolinha_Protocol();
+int receiver(int port) {
+    Bolinha_Protocol * bp = new Bolinha_Protocol(port);
     bp->receive(data, 1500);
-    cout << "Dado recebido: " << data << ", pela porta: " << 5000 << endl;
+    cout << "Dado recebido: " << data << ", pela porta: " << port << endl;
     return 1;
 }
 
@@ -32,10 +37,11 @@ int main()
     cout << "NIC Test" << endl;
     cout << "Meu endereco eh " << nic->address() << endl;
     if(nic->address()[5] % 2) { // sender
-        sender();
+        sender(5000);
+        sender(5001);
     } else {
-        Delay(200000000); // NO RECEIVE
-        receiver();
+        //Binds nas portas 5000 e 5001 para receber
+        receiver(5001);
     }
 
     /*NIC<Ethernet>::Statistics stat = sp->nic()->statistics();
