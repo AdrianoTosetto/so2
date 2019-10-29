@@ -9,19 +9,10 @@
 #include <utility/bitmap.h>
 #include <machine/nic.h>
 #include <time.h>
-#include <utility/queue.h>
+#include <utility/list.h>
 
 
 __BEGIN_SYS
-
-struct Frame_Track {
-    short _frame_id;
-    short _port;
-
-    Frame_Track(short frame_id, short port): _frame_id(frame_id), _port(port) {}
-};
-
-typedef struct Frame_Track FT;
 
 class Bolinha_Protocol: private NIC<Ethernet>::Observer, Concurrent_Observer<Ethernet::Buffer, Ethernet::Protocol>
 {
@@ -36,19 +27,36 @@ public:
     typedef Data_Observer<Buffer, Ethernet::Protocol> Observer;
     typedef Data_Observed<Buffer, Ethernet::Protocol> Observed;
     typedef Ethernet::Protocol Protocol;
+
+    struct Frame_Track {
+        short _frame_id;
+        short _port;
+        Address _mac;
+
+        Frame_Track(short frame_id, short port, Address mac): _frame_id(frame_id), _port(port), _mac(mac) {}
+        Frame_Track(): _frame_id(-1), _port(-1) {}
+    };
+
+    typedef struct Frame_Track FT;
+
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
     Bolinha_Protocol(short port = 5000): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)) {
-        _nic->attach(this, Prot_Bolinha);
+        if (port <= 0)
+            return;
         bool res = CPU::tsl<char>(_ports[port]);
         if (!res) {
             db<Bolinha_Protocol>(WRN) << "Porta adquirida com sucesso!" << endl;
             _using_port = port;
+            _nic->attach(this, Prot_Bolinha);
         } else {
             db<Bolinha_Protocol>(WRN) << "Falha ao adquirir porta!" << endl;
         }
     }
     virtual ~Bolinha_Protocol() {
         CPU::fdec<char>(_ports[_using_port]);
+        Frame *f = new Frame(_nic->broadcast(), addr(), -1, 0, 0, _using_port, 0, 0);
+        f->flags(2);
+        _nic->send(_nic->broadcast(), Prot_Bolinha, f, 0);
     }
     int send(void *data, size_t size, Address& to, short port_receiver) {
         int bytes;
@@ -89,14 +97,16 @@ public:
 
         char* ack_data = (char*) "ACK\n";
         Frame *ack = new Frame(f->from(), addr(), -1, f->status(), ack_data, _using_port, f->port_sender(), 0);
-        ack->flags(true);
+        ack->flags(1);
         ack->sem(f->sem());
         _nic->send(f->from(), Prot_Bolinha, ack, size);
+
         _m.lock();
-        Frame_Track ft(f->frame_id(), f->port_receiver());
-        tracking_messages[_frame_track_count] = ft;
-        _frame_track_count = (_frame_track_count + 1)  % 100;
+        Frame_Track ft(f->frame_id(), f->port_receiver(), f->from());
+        _tracking_messages[_frame_track_count] = ft;
+        _frame_track_count = (_frame_track_count + 1) % 100;
         _m.unlock();
+
         delete f;
         _nic->free(rec);
         return size;
@@ -106,27 +116,49 @@ public:
     }
     void update(Observed *o, const Protocol& p, Buffer *b) {
         Frame *f = reinterpret_cast<Frame*>(b->frame()->data<char>());
-        if (f->port_receiver() != _using_port) {
+        short port_receiver = f->port_receiver();
+        short flags = f->flags();
+        short frame_id = f->frame_id();
+        if (port_receiver != _using_port && port_receiver != 0) {
             delete f;
             return;
         }
-        if (f->flags()) {
-            db<Thread>(WRN) << "ACK " << f->frame_id() << " recebido" << endl;
-            for (int i = 0; i < _frame_track_count; i++) {
-                short port = tracking_messages[i]._port;
-                short frame_id = tracking_messages[i]._frame_id;
-                if(port == f->port_receiver() && frame_id == f->frame_id()) {
-                    _nic->free(b); // nobody is listening to this buffer, so we need call free on it
-                    return;
-                }
-            }
-            db<Bolinha_Protocol>(WRN) << "ACK " << f->frame_id() << " recebido" << endl;
-            if (!CPU::tsl<bool>(*(f->status())))
+        if (flags & 1) {
+            db<Thread>(WRN) << "ACK " << frame_id << " recebido" << endl;
+            if (!CPU::tsl<bool>(*(f->status()))) {
                 f->sem()->v();
+                _nic->free(b);
+            }
             else
                 CPU::fdec<bool>(*(f->status()));
             delete f;
+            return;
         }
+        if (flags & 2) {
+            _m.lock();
+            for (int i = 0; i < 100; i++) {
+                short port = _tracking_messages[i]._port;
+                Address frame_mac = _tracking_messages[i]._mac;
+                if(port == port_receiver && addr() == frame_mac) {
+                    _tracking_messages[i] = FT();
+                }
+            }
+            _m.unlock();
+            _nic->free(b);
+            delete f;
+            return;
+        }
+        _m.lock();
+        for (int i = 0; i < 100; i++) {
+            short port = _tracking_messages[i]._port;
+            short ft_id = _tracking_messages[i]._frame_id;
+            Address frame_mac = _tracking_messages[i]._mac;
+            if(port == port_receiver && ft_id == frame_id && addr() == frame_mac) {
+                _nic->free(b); // nobody is listening to this buffer, so we need call free on it
+                return;
+            }
+        }
+        _m.unlock();
         Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
     }
     const Address& addr() const {
@@ -139,11 +171,11 @@ public:
     public:    
 
         Header(Address from, short frame_id, bool* status, short port_sender, short port_receiver): 
-        _from(from), _frame_id(frame_id), _status(status), _flags(false), _port_sender(port_sender), _port_receiver(port_receiver)
+        _from(from), _frame_id(frame_id), _status(status), _flags(0), _port_sender(port_sender), _port_receiver(port_receiver)
         {}
 
-        void flags(bool ack) {
-            _flags = ack;
+        void flags(char flags) {
+            _flags = flags;
         }
         void sem(Semaphore * sem) {
             _sem = sem;
@@ -154,7 +186,7 @@ public:
         Address from() {
             return _from;
         }
-        bool flags() {
+        char flags() {
             return _flags;
         }
         Semaphore * sem() {
@@ -168,7 +200,7 @@ public:
         Semaphore * _sem;
         short _frame_id;
         bool*  _status;
-        bool  _flags; // ACK
+        char  _flags; // ACK
         short _port_sender;
         short _port_receiver;
     } __attribute__((packed));
@@ -181,8 +213,8 @@ public:
         size_t _len;
         void* _data;
 
-        void flags(bool ack) {
-            _flags = ack;
+        void flags(char flags) {
+            _flags = flags;
         }
         void sem(Semaphore * sem) {
             _sem = sem;
@@ -199,7 +231,7 @@ public:
         Address from() {
             return _from;
         }
-        bool flags() {
+        char flags() {
             return _flags;
         }
         Semaphore * sem() {
@@ -217,7 +249,7 @@ public:
 protected:
     NIC<Ethernet> * _nic;
     Address _address;
-    static Mutex _m;
+    Mutex _m;
     static char _ports[1000];
     static Observed _observed;
     static const unsigned int NIC_MTU = 1500;
@@ -225,7 +257,7 @@ protected:
     short _using_port = -1;
     short _packet_count = 0;
     short _frame_track_count = 0;
-    Frame_Track tracking_messages[100]; 
+    Frame_Track _tracking_messages[100];
 };
 
 // bool Bolinha_Protocol::_ports[] = {0};
