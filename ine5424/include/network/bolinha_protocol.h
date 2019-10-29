@@ -109,7 +109,6 @@ public:
         if (DELAY_ACK) Delay (5000000);
         _nic->send(f->from(), Prot_Bolinha, ack, size);
 
-        delete f;
         _nic->free(rec);
 
         return size;
@@ -133,7 +132,6 @@ public:
             }
             else
                 CPU::fdec<bool>(*(f->status()));
-            delete f;
             return;
         }
         if (flags & 2) {
@@ -147,7 +145,6 @@ public:
             }
             _m.unlock();
             _nic->free(b);
-            delete f;
             return;
         }
         _m.lock();
