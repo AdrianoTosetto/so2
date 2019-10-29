@@ -291,6 +291,12 @@ template<> struct Traits<TCP>: public Traits<Network>
     static const unsigned int WINDOW = 4096;
 };
 
+template<> struct Traits<Bolinha_Protocol>: public Traits<Network>
+{
+    static const unsigned int TIMEOUT = 2 * 1000000;
+    static const unsigned int RETRIES = 3;
+};
+
 template<> struct Traits<DHCP>: public Traits<Network>
 {
 };
