@@ -71,6 +71,7 @@ public:
 
             Frame *f = new Frame(to, addr(), CPU::finc<short int>(_packet_count), &status, data, _using_port, port_receiver, 5);
             f->sem(&sem);
+            f->flags(0);
 
             while(!status && n > 0) {
                 db<Bolinha_Protocol>(WRN) << "Attempting to send " << n << " through port: " << port_receiver  << endl;
