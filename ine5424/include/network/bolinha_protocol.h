@@ -95,18 +95,20 @@ public:
         Buffer *rec = updated();
         Frame *f = reinterpret_cast<Frame*>(rec->frame()->data<char>());
         memcpy(buffer, f->data<char>(), size);
+
+        _m.lock();
+        Frame_Track ft(f->frame_id(), f->port_sender(), f->from());
+        _tracking_messages[_frame_track_count] = ft;
+        _frame_track_count = (_frame_track_count + 1) % 100;
+        _m.unlock();
+
         char* ack_data = (char*) "ACK\n";
         Frame *ack = new Frame(f->from(), addr(), -1, f->status(), ack_data, _using_port, f->port_sender(), 0);
         ack->flags(1);
         ack->sem(f->sem());
-    
         if (DELAY_ACK) Delay (5000000);
-        _m.lock();
-        Frame_Track ft(f->frame_id(), f->port_receiver(), f->from());
-        _tracking_messages[_frame_track_count] = ft;
-        _frame_track_count = (_frame_track_count + 1) % 100;
-        _m.unlock();
         _nic->send(f->from(), Prot_Bolinha, ack, size);
+
         delete f;
         _nic->free(rec);
 
@@ -121,7 +123,6 @@ public:
         short flags = f->flags();
         short frame_id = f->frame_id();
         if (port_receiver != _using_port && port_receiver != 0) {
-            delete f;
             return;
         }
         if (flags & 1) {
