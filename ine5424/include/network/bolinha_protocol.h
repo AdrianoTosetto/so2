@@ -94,22 +94,21 @@ public:
         Buffer *rec = updated();
         Frame *f = reinterpret_cast<Frame*>(rec->frame()->data<char>());
         memcpy(buffer, f->data<char>(), size);
-
         char* ack_data = (char*) "ACK\n";
         Frame *ack = new Frame(f->from(), addr(), -1, f->status(), ack_data, _using_port, f->port_sender(), 0);
         ack->flags(1);
         ack->sem(f->sem());
+    
         if (DELAY_ACK) Delay (5000000);
-        _nic->send(f->from(), Prot_Bolinha, ack, size);
-
         _m.lock();
         Frame_Track ft(f->frame_id(), f->port_receiver(), f->from());
         _tracking_messages[_frame_track_count] = ft;
         _frame_track_count = (_frame_track_count + 1) % 100;
         _m.unlock();
-
+        _nic->send(f->from(), Prot_Bolinha, ack, size);
         delete f;
         _nic->free(rec);
+
         return size;
     }
     static bool notify(const Protocol& p, Buffer *b) {
@@ -154,6 +153,8 @@ public:
             short port = _tracking_messages[i]._port;
             short ft_id = _tracking_messages[i]._frame_id;
             Address frame_mac = _tracking_messages[i]._mac;
+            db<Bolinha_Protocol>(WRN) << "Trackig, port = " <<  port << ", ft_id = " << ft_id << endl;
+
             if(port == port_receiver && ft_id == frame_id && addr() == frame_mac) {
                 _nic->free(b); // nobody is listening to this buffer, so we need call free on it
                 db<Bolinha_Protocol>(WRN) << "Mensagem descartada, id: " <<  frame_id << endl;
