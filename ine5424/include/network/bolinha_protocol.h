@@ -99,6 +99,7 @@ public:
         Frame *ack = new Frame(f->from(), addr(), -1, f->status(), ack_data, _using_port, f->port_sender(), 0);
         ack->flags(1);
         ack->sem(f->sem());
+        if (DELAY_ACK) Delay (5000000);
         _nic->send(f->from(), Prot_Bolinha, ack, size);
 
         _m.lock();
@@ -155,6 +156,7 @@ public:
             Address frame_mac = _tracking_messages[i]._mac;
             if(port == port_receiver && ft_id == frame_id && addr() == frame_mac) {
                 _nic->free(b); // nobody is listening to this buffer, so we need call free on it
+                db<Bolinha_Protocol>(WRN) << "Mensagem descartada, id: " <<  frame_id << endl;
                 return;
             }
         }
@@ -258,6 +260,7 @@ protected:
     short _packet_count = 0;
     short _frame_track_count = 0;
     Frame_Track _tracking_messages[100];
+    static const bool DELAY_ACK = true; // for test of duplicate messages 
 };
 
 // bool Bolinha_Protocol::_ports[] = {0};
