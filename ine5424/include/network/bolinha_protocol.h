@@ -9,7 +9,6 @@
 #include <utility/bitmap.h>
 #include <machine/nic.h>
 #include <time.h>
-#include <queue.h>
 
 
 __BEGIN_SYS
@@ -87,7 +86,11 @@ public:
         ack->flags(true);
         ack->sem(f->sem());
         _nic->send(f->from(), Prot_Bolinha, ack, size);
-
+        _m.lock();
+        Frame_Track ft(f->frame_id(), f->port_receiver());
+        tracking_messages[_frame_track_count] = ft;
+        _frame_track_count = (_frame_track_count + 1)  % 100;
+        _m.unlock();
         delete f;
         _nic->free(rec);
         return size;
@@ -103,6 +106,14 @@ public:
         }
         if (f->flags()) {
             db<Thread>(WRN) << "ACK " << f->frame_id() << " recebido" << endl;
+            for (int i = 0; i < _frame_track_count; i++) {
+                short port = tracking_messages[i]._port;
+                short frame_id = tracking_messages[i]._frame_id;
+                if(port == f->port_receiver() && frame_id == f->frame_id()) {
+                    _nic->free(b); // nobody is listening to this buffer, so we need call free on it
+                    return;
+                }
+            }
             if (!CPU::tsl<bool>(*(f->status())))
                 f->sem()->v();
             else
@@ -206,7 +217,8 @@ protected:
     static const unsigned int Bolinha_MTU = NIC_MTU - sizeof(Header);
     short _using_port = -1;
     short _packet_count = 0;
-    Thread _packet_monitor;
+    short _frame_track_count = 0;
+    Frame_Track tracking_messages[100]; 
 };
 
 // bool Bolinha_Protocol::_ports[] = {0};
