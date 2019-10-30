@@ -109,7 +109,7 @@ public:
         Frame *ack = new Frame(f->from(), addr(), -1, f->status(), ack_data, _using_port, f->port_sender(), 0);
         ack->flags(1);
         ack->sem(f->sem());
-        if (DELAY_ACK) Delay (5000000);
+        if (DELAY_ACK) Delay (5*1000000);
         _nic->send(f->from(), Prot_Bolinha, ack, size);
 
         _nic->free(rec);
@@ -127,6 +127,7 @@ public:
         short frame_id = f->frame_id();
         Address frame_add = f->from();
         if (port_receiver != _using_port && port_receiver != 0) {
+            db<Thread>(WRN) << "Porta " << _using_port << " recebeu frame para porta " << port_receiver << endl;
             return;
         }
         if (flags & 1) {
@@ -140,7 +141,7 @@ public:
             return;
         }
         if (flags & 2) {
-            db<Bolinha_Protocol>(WRN) << "flush from " << frame_add << "/" << port_sender << endl;
+            db<Bolinha_Protocol>(WRN) << "Flush de " << frame_add << "/" << port_sender << endl;
             _m.lock();
             for (int i = 0; i < 100; i++) {
                 short port = _tracking_messages[i]._port;
@@ -153,13 +154,14 @@ public:
             _nic->free(b);
             return;
         }
-        _m.lock();
         for (int i = 0; i < 100; i++) {
+            _m.lock();
             short port = _tracking_messages[i]._port;
             short ft_id = _tracking_messages[i]._frame_id;
             Address frame_mac = _tracking_messages[i]._mac;
-            if (!i)
-                db<Bolinha_Protocol>(WRN) << "Tracking, port = " << port << ", ft_id = " << ft_id << ", mac = " << frame_mac << endl;
+            _m.unlock();
+            // if (!i)
+            //     db<Bolinha_Protocol>(WRN) << "Tracking, port = " << port << ", ft_id = " << ft_id << ", mac = " << frame_mac << endl;
 
             if(port == port_sender && ft_id == frame_id && frame_add == frame_mac) {
                 _nic->free(b); // nobody is listening to this buffer, so we need call free on it
@@ -167,7 +169,6 @@ public:
                 return;
             }
         }
-        _m.unlock();
         Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
     }
     const Address& addr() const {
