@@ -46,6 +46,8 @@ int main()
         new Thread(&receiver, 5000);
     }
 
+    cout << "Kkk saindo" << endl;
+
     /*NIC<Ethernet>::Statistics stat = sp->nic()->statistics();
     cout << "Statistics\n"
          << "Tx Packets: " << stat.tx_packets << "\n"

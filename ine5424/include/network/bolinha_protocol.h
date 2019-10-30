@@ -63,6 +63,7 @@ public:
         int n = RETRIES;
         bool result;
         bool status = false;
+        int id = _packet_count;
         {
 
             Semaphore sem(0);
@@ -84,9 +85,11 @@ public:
             delete f;
         }
         if (result) {
-            db<Bolinha_Protocol>(WRN) << "Mensagem " << &status << " confirmada" << endl;
+            db<Bolinha_Protocol>(WRN) << "Mensagem " << id << " confirmada" << endl;
+            db<Bolinha_Protocol>(WRN) << "Mensagem confirmada, port = " << _using_port << ", ft_id = " << id << ", mac = " << addr() << endl;
         } else  {
-            db<Bolinha_Protocol>(WRN) << "Falha ao enviar mensagem " << &status << endl;
+            db<Bolinha_Protocol>(WRN) << "Falha ao enviar mensagem, port = " << _using_port << ", ft_id = " << id << ", mac = " << addr() << endl;
+            // db<Bolinha_Protocol>(WRN) << "Falha ao enviar mensagem " << id << endl;
             bytes = 0;
         }
         return bytes;
@@ -119,8 +122,10 @@ public:
     void update(Observed *o, const Protocol& p, Buffer *b) {
         Frame *f = reinterpret_cast<Frame*>(b->frame()->data<char>());
         short port_receiver = f->port_receiver();
+        short port_sender = f->port_sender();
         short flags = f->flags();
         short frame_id = f->frame_id();
+        Address frame_add = f->from();
         if (port_receiver != _using_port && port_receiver != 0) {
             return;
         }
@@ -135,11 +140,12 @@ public:
             return;
         }
         if (flags & 2) {
+            db<Bolinha_Protocol>(WRN) << "flush from " << frame_add << "/" << port_sender << endl;
             _m.lock();
             for (int i = 0; i < 100; i++) {
                 short port = _tracking_messages[i]._port;
                 Address frame_mac = _tracking_messages[i]._mac;
-                if(port == port_receiver && addr() == frame_mac) {
+                if(port == port_sender && frame_add == frame_mac) {
                     _tracking_messages[i] = FT();
                 }
             }
@@ -152,11 +158,12 @@ public:
             short port = _tracking_messages[i]._port;
             short ft_id = _tracking_messages[i]._frame_id;
             Address frame_mac = _tracking_messages[i]._mac;
-            db<Bolinha_Protocol>(WRN) << "Trackig, port = " <<  port << ", ft_id = " << ft_id << endl;
+            if (!i)
+                db<Bolinha_Protocol>(WRN) << "Tracking, port = " << port << ", ft_id = " << ft_id << ", mac = " << frame_mac << endl;
 
-            if(port == port_receiver && ft_id == frame_id && addr() == frame_mac) {
+            if(port == port_sender && ft_id == frame_id && frame_add == frame_mac) {
                 _nic->free(b); // nobody is listening to this buffer, so we need call free on it
-                db<Bolinha_Protocol>(WRN) << "Mensagem descartada, id: " <<  frame_id << endl;
+                db<Bolinha_Protocol>(WRN) << "Descarte, port = " << port << ", ft_id = " << ft_id << ", mac = " << frame_mac << endl;
                 return;
             }
         }
