@@ -109,7 +109,7 @@ public:
         Frame *ack = new Frame(f->from(), addr(), -1, f->status(), ack_data, _using_port, f->port_sender(), 0);
         ack->flags(1);
         ack->sem(f->sem());
-        if (DELAY_ACK) Delay (5*1000000);
+        if (_delay_ack) Delay (5*1000000);
         _nic->send(f->from(), Prot_Bolinha, ack, size);
 
         _nic->free(rec);
@@ -177,6 +177,9 @@ public:
     unsigned int MTU() {
         return Bolinha_MTU; // header precisa ser packed pra calcular certo o mtu
     }
+
+    void delay_ack(bool d_ack) { _delay_ack = d_ack; }
+
     class Header {
     public:    
 
@@ -260,6 +263,7 @@ protected:
     NIC<Ethernet> * _nic;
     Address _address;
     Mutex _m;
+    bool _delay_ack = false; // for test of duplicate messages 
     static char _ports[1000];
     static Observed _observed;
     static const unsigned int NIC_MTU = 1500;
@@ -268,7 +272,6 @@ protected:
     short _packet_count = 0;
     short _frame_track_count = 0;
     Frame_Track _tracking_messages[100];
-    static const bool DELAY_ACK = true; // for test of duplicate messages 
 };
 
 // bool Bolinha_Protocol::_ports[] = {0};

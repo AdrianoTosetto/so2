@@ -21,6 +21,7 @@ int sender(int port) {
 
 int receiver(int rport) {
     Bolinha_Protocol * bp = new Bolinha_Protocol(rport);
+    bp->delay_ack(true);
     bp->receive(data, 1500);
     cout << "Dado recebido: " << data << ", pela porta: " << rport << endl;
     return 1;
