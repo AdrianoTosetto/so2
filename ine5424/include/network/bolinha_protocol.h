@@ -14,6 +14,14 @@
 
 __BEGIN_SYS
 
+enum MESSAGE_TYPE {
+    SYN,
+    FOLLOW_UP,
+    DELAY_REQ,
+    DELAY_RES,
+    REQUEST_TS
+};
+
 class Bolinha_Protocol: private NIC<Ethernet>::Observer, Concurrent_Observer<Ethernet::Buffer, Ethernet::Protocol>
 {
 
@@ -73,7 +81,6 @@ public:
             Frame *f = new Frame(to, addr(), CPU::finc<short int>(_packet_count), &status, data, _using_port, port_receiver, 5);
             f->sem(&sem);
             f->flags(0);
-
             while(!status && n > 0) {
                 db<Bolinha_Protocol>(WRN) << "Attempting to send " << n << " through port: " << port_receiver  << endl;
                 bytes = _nic->send(to, Prot_Bolinha, f, size);
@@ -216,12 +223,20 @@ public:
         char  _flags; // ACK
         short _port_sender;
         short _port_receiver;
+        int _ptp_flags:3;           // 000 -> SYN
+                                    // 001 -> Follow_UP
+                                    // 010 -> Delay_Req
+                                    // 011 -> Delay_Res
+                                    // 100 -> Request_TS
     } __attribute__((packed));
 
     class Frame: private Header {
-    public: 
-        Frame(Address to, Address from, int packet_id, bool* status, void* data, short port_sender, short port_receiver,size_t len): 
-            Header(from, packet_id, status, port_sender, port_receiver), _len(len), _data(data) {}
+    public:
+        Frame(Address to, Address from, int packet_id, bool* status, void* data, short port_sender, 
+            short port_receiver,size_t len, MESSAGE_TYPE type = MESSAGE_TYPE::SYN): 
+            Header(from, packet_id, status, port_sender, port_receiver), _len(len), _data(data) {
+                set_ptp_flags(type);
+            }
         typedef unsigned char Data[];
         size_t _len;
         void* _data;
@@ -257,6 +272,43 @@ public:
         }
         short port_receiver() {
             return _port_receiver;
+        }
+        bool is_Syn() {
+            return _ptp_flags == 0b000;
+        }
+        bool is_Follow_Up() {
+            return _ptp_flags == 0b001;
+        }
+        bool is_Delay_Req() {
+            return _ptp_flags == 0b010;
+        }
+        bool is_Delay_Res() {
+            return _ptp_flags == 0b011;
+        }
+        bool is_Request_TS() {
+            return _ptp_flags == 0b100;
+        }
+    private:
+        void set_ptp_flags(MESSAGE_TYPE type) {
+            switch (type)
+            {
+            case MESSAGE_TYPE::SYN:
+                _ptp_flags = 0b000;
+                break;
+            case MESSAGE_TYPE::FOLLOW_UP:
+                _ptp_flags = 0b001;
+                break;
+            case MESSAGE_TYPE::DELAY_REQ:
+                _ptp_flags = 0b010;
+                break;
+            case MESSAGE_TYPE::DELAY_RES:
+                _ptp_flags = 0b011;
+                break;
+            case MESSAGE_TYPE::REQUEST_TS:
+                _ptp_flags = 0b100;
+            default:
+                break;
+            }
         }
     } __attribute__((packed));
 protected:
