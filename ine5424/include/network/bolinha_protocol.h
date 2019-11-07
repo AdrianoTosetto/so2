@@ -13,7 +13,6 @@
 
 
 __BEGIN_SYS
-typedef List_Elements::Doubly_Linked_Ordered<Bolinha_Protocol::Sem_Track, short> Sem_Track_El;
 
 enum MESSAGE_TYPE {
     SYN,
@@ -52,6 +51,7 @@ public:
         Sem_Track(short frame_id, Semaphore *sem, bool* status):
             _frame_id(frame_id), _sem(sem), _status(status){}
     };
+    typedef List_Elements::Doubly_Linked_Ordered<Bolinha_Protocol::Sem_Track, short> Sem_Track_El;
     typedef struct Frame_Track FT;
 
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
@@ -74,7 +74,7 @@ public:
         _nic->send(_nic->broadcast(), Prot_Bolinha, f, 0);
     }
     Address broadcast () {
-        return _nic->broadcast()
+        return _nic->broadcast();
     }
     int send(void *data, size_t size, Address& to, short port_receiver) {
         int bytes;
@@ -162,7 +162,7 @@ public:
             _sem_track_m.lock();
             Sem_Track_El * ste = sem_track.search_rank(frame_id);
             if (ste) {
-                Sem_Track* semt = sem_track.search_rank(frame_id)->object();
+                Sem_Track * semt = ste->object();
                 semt->_sem->v();
                 CPU::tsl<bool>(*(semt->_status));
                 sem_track.remove_rank(frame_id);

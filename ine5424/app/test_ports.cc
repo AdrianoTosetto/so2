@@ -19,9 +19,10 @@ int sender(int port) {
         hello = "olleH\n";
     }
     Address d = bp->addr();
+    Address bc = bp->broadcast();
     d[5]--;
     cout << "Dado enviado: " << hello << ", para a porta: "<< port << endl;
-    return bp->send(hello, 1500, bp->broadcast(), port);
+    return bp->send(hello, 1500, bc, port);
 }
 
 int receiver(int rport) {
