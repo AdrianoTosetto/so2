@@ -55,7 +55,8 @@ public:
     typedef struct Frame_Track FT;
 
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
-    Bolinha_Protocol(short port = 5000): _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)) {
+    Bolinha_Protocol(short port = 5000, bool master = false):
+        _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)), _master(master) {
         if (port <= 0)
             return;
         bool res = CPU::tsl<char>(_ports[port]);
@@ -72,6 +73,9 @@ public:
         Frame *f = new Frame(_nic->broadcast(), addr(), -1, 0, 0, _using_port, 0, 0);
         f->flags(2);
         _nic->send(_nic->broadcast(), Prot_Bolinha, f, 0);
+    }
+    bool master() const {
+        return _master;
     }
     Address broadcast () {
         return _nic->broadcast();
@@ -350,6 +354,7 @@ protected:
     short _frame_track_count = 0;
     Frame_Track _tracking_messages[100];
     Ordered_List<Sem_Track, short> sem_track;
+    bool _master;
 };
 
 // bool Bolinha_Protocol::_ports[] = {0};
