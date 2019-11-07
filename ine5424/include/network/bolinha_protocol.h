@@ -13,6 +13,7 @@
 
 
 __BEGIN_SYS
+typedef List_Elements::Doubly_Linked_Ordered<Bolinha_Protocol::Sem_Track, short> Sem_Track_El;
 
 enum MESSAGE_TYPE {
     SYN,
@@ -44,7 +45,13 @@ public:
         Frame_Track(short frame_id, short port, Address mac): _frame_id(frame_id), _port(port), _mac(mac) {}
         Frame_Track(): _frame_id(-1), _port(-1) {}
     };
-
+    struct Sem_Track {
+        short _frame_id;
+        Semaphore *_sem;
+        bool *_status;
+        Sem_Track(short frame_id, Semaphore *sem, bool* status):
+            _frame_id(frame_id), _sem(sem), _status(status){}
+    };
     typedef struct Frame_Track FT;
 
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
@@ -66,6 +73,9 @@ public:
         f->flags(2);
         _nic->send(_nic->broadcast(), Prot_Bolinha, f, 0);
     }
+    Address broadcast () {
+        return _nic->broadcast()
+    }
     int send(void *data, size_t size, Address& to, short port_receiver) {
         int bytes;
         int n = RETRIES;
@@ -81,6 +91,13 @@ public:
             Frame *f = new Frame(to, addr(), CPU::finc<short int>(_packet_count), &status, data, _using_port, port_receiver, 5);
             f->sem(&sem);
             f->flags(0);
+            Sem_Track st(f->frame_id(), &sem, &status);
+            
+            Sem_Track_El e(&st, f->frame_id());
+            _sem_track_m.lock();
+            sem_track.insert(&e);
+            _sem_track_m.unlock();
+            
             while(!status && n > 0) {
                 db<Bolinha_Protocol>(WRN) << "Attempting to send " << n << " through port: " << port_receiver  << endl;
                 bytes = _nic->send(to, Prot_Bolinha, f, size);
@@ -89,6 +106,9 @@ public:
             }
 
             result = CPU::tsl<bool>(status);
+            _sem_track_m.lock();
+            sem_track.remove_rank(f->frame_id());
+            _sem_track_m.unlock();
             delete f;
         }
         if (result) {
@@ -139,12 +159,16 @@ public:
         }
         if (flags & 1) {
             db<Thread>(WRN) << "ACK " << frame_id << " recebido" << endl;
-            if (!CPU::tsl<bool>(*(f->status()))) {
-                f->sem()->v();
-                _nic->free(b);
+            _sem_track_m.lock();
+            Sem_Track_El * ste = sem_track.search_rank(frame_id);
+            if (ste) {
+                Sem_Track* semt = sem_track.search_rank(frame_id)->object();
+                semt->_sem->v();
+                CPU::tsl<bool>(*(semt->_status));
+                sem_track.remove_rank(frame_id);
             }
-            else
-                CPU::fdec<bool>(*(f->status()));
+            _sem_track_m.unlock();
+            _nic->free(b);
             return;
         }
         if (flags & 2) {
@@ -314,6 +338,7 @@ public:
 protected:
     NIC<Ethernet> * _nic;
     Address _address;
+    Mutex _sem_track_m;
     Mutex _m;
     bool _delay_ack = false; // for test of duplicate messages 
     static char _ports[1000];
@@ -324,6 +349,7 @@ protected:
     short _packet_count = 0;
     short _frame_track_count = 0;
     Frame_Track _tracking_messages[100];
+    Ordered_List<Sem_Track, short> sem_track;
 };
 
 // bool Bolinha_Protocol::_ports[] = {0};
