@@ -92,7 +92,7 @@ public:
         Frame *f = new Frame(_nic->broadcast(), addr(), -1, 0, 0, _using_port, 0, 0);
         f->flags(2);
         _nic->send(_nic->broadcast(), Prot_Bolinha, f, sizeof(Frame));
-		
+
 		finish_ptp = true;
 		ptp_handler->join();
 		delete ptp_handler;
@@ -183,10 +183,15 @@ public:
 		Address from = f->from();
 		
         if (!f->is_Application()) {
+			db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP" << endl;
 			if (f->is_Syn()) {
+				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP SYN" << endl;
 				ticks[1] = 100;
+				Frame *f_follow_up = new Frame(_nic->broadcast(), addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::FOLLOW_UP);
+				_nic->send(from, Prot_Bolinha, f_follow_up, sizeof(Frame));
 			}
 			if (f->is_Follow_Up()) {
+				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP FollowUP" << endl;
 				// recuperar o T1
 				ticks[0] = f->time();
 				Frame *f_delay_req = new Frame(_nic->broadcast(), addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::DELAY_REQ);
@@ -197,6 +202,7 @@ public:
 
 			}
 			if (f->is_Delay_Req()) {
+				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP Delay Req" << endl;
 				ticks[3] = 100;
 				Delay(2*SEC);
 				Frame *f_delay_res = new Frame(from, addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::DELAY_RES);
@@ -204,6 +210,7 @@ public:
 				_nic->send(from, Prot_Bolinha, f_delay_res, sizeof(Frame));
 			}
 			if (f->is_Delay_Res()) {
+				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP Delay Res" << endl;
 				ticks[3] = f->time();
 				// TODO: Sincronização
 			}
