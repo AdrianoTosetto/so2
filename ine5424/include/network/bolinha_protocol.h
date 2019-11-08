@@ -214,6 +214,13 @@ public:
 				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP Delay Res" << endl;
 				ticks[3] = f->time();
 				// TODO: Sincronização
+                // PD =  (T2 - T1) / 2
+                // OFFSET = T2 - T1 - PD
+                auto propagation_delay = (ticks[1] - ticks[0]) / 2;
+                auto offset = (ticks[1] - ticks[0]) - propagation_delay;
+
+                db<Bolinha_Protocol>(WRN) << "Offset Calculado" << offset <<endl;
+
 			}
 			Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
         }
