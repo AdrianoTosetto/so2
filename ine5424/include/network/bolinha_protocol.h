@@ -186,7 +186,8 @@ public:
 			db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP" << endl;
 			if (f->is_Syn()) {
 				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP SYN" << endl;
-				ticks[1] = 100;
+				ticks[1] = Alarm::elapsed();
+				
 				Frame *f_follow_up = new Frame(_nic->broadcast(), addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::FOLLOW_UP);
 				_nic->send(from, Prot_Bolinha, f_follow_up, sizeof(Frame));
 			}
@@ -197,16 +198,16 @@ public:
 				Frame *f_delay_req = new Frame(_nic->broadcast(), addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::DELAY_REQ);
 				Delay(2*SEC);
 				db<Bolinha_Protocol>(WRN) << "mandando delay req" << endl;
-				ticks[2] = 100;
+				ticks[2] = Alarm::elapsed();
 				_nic->send(from, Prot_Bolinha, f_delay_req, sizeof(Frame));
 
 			}
 			if (f->is_Delay_Req()) {
 				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP Delay Req" << endl;
-				ticks[3] = 100;
 				Delay(2*SEC);
 				Frame *f_delay_res = new Frame(from, addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::DELAY_RES);
 				f->time(ticks[3]);
+				ticks[3] = Alarm::elapsed();
 				_nic->send(from, Prot_Bolinha, f_delay_res, sizeof(Frame));
 			}
 			if (f->is_Delay_Res()) {

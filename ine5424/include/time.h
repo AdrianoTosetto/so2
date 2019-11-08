@@ -38,6 +38,7 @@ class Alarm
     friend class RT_Thread;                     // for ticks() and elapsed()
     friend class Scheduling_Criteria::FCFS;     // for ticks() and elapsed()
     friend class Scheduling_Criteria::EDF;      // for ticks() and elapsed()
+    friend class Bolinha_Protocol;
 
 private:
     typedef Timer::Tick Tick;
