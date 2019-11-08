@@ -15,13 +15,17 @@
 __BEGIN_SYS
 // teste
 
+#define SEC 1000000
+
 enum MESSAGE_TYPE {
     SYN,
     FOLLOW_UP,
     DELAY_REQ,
     DELAY_RES,
-    REQUEST_TS
+    REQUEST_TS,
+    APPLICATION
 };
+
 
 class Bolinha_Protocol: private NIC<Ethernet>::Observer, Concurrent_Observer<Ethernet::Buffer, Ethernet::Protocol>
 {
@@ -36,6 +40,7 @@ public:
     typedef Data_Observer<Buffer, Ethernet::Protocol> Observer;
     typedef Data_Observed<Buffer, Ethernet::Protocol> Observed;
     typedef Ethernet::Protocol Protocol;
+	typedef Timer::Tick Tick;
 
     struct Frame_Track {
         short _frame_id;
@@ -68,12 +73,29 @@ public:
         } else {
             db<Bolinha_Protocol>(WRN) << "Falha ao adquirir porta!" << endl;
         }
+		if(port == 420 && _nic->address()[5] == 9) {
+			db<Bolinha_Protocol>(WRN) << "Começando o PTP... " << endl;
+			ptp_handler = new Thread(&init_ptp, this);
+		}
     }
+	static int init_ptp(Bolinha_Protocol * _this) {
+		while (!_this->finish_ptp) {
+			Frame *f = new Frame(_this->_nic->broadcast(), _this->addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::SYN);
+			_this->_nic->send(_this->_nic->broadcast(), _this->Prot_Bolinha, f, sizeof(Frame));
+			Delay(20*SEC);
+		}
+		return 0;
+	}
     virtual ~Bolinha_Protocol() {
         CPU::fdec<char>(_ports[_using_port]);
+
         Frame *f = new Frame(_nic->broadcast(), addr(), -1, 0, 0, _using_port, 0, 0);
         f->flags(2);
-        _nic->send(_nic->broadcast(), Prot_Bolinha, f, 0);
+        _nic->send(_nic->broadcast(), Prot_Bolinha, f, sizeof(Frame));
+		
+		finish_ptp = true;
+		ptp_handler->join();
+		delete ptp_handler;
     }
     bool master() const {
         return _master;
@@ -88,7 +110,6 @@ public:
         bool status = false;
         int id = _packet_count;
         {
-
             Semaphore sem(0);
             Semaphore_Handler handler_a(&sem);
             Alarm alarm_a = Alarm(TIMEOUT, &handler_a, n);
@@ -138,11 +159,10 @@ public:
         _m.unlock();
 
         char* ack_data = (char*) "ACK\n";
-        Frame *ack = new Frame(f->from(), addr(), -1, f->status(), ack_data, _using_port, f->port_sender(), 0);
+        Frame *ack = new Frame(f->from(), addr(), f->frame_id(), f->status(), ack_data, _using_port, f->port_sender(), 0);
         ack->flags(1);
-        ack->sem(f->sem());
-        if (_delay_ack) Delay (5*1000000);
-        _nic->send(f->from(), Prot_Bolinha, ack, size);
+        //if (_delay_ack) Delay (5*1000000);
+        _nic->send(f->from(), Prot_Bolinha, ack, sizeof(Frame));
 
         _nic->free(rec);
 
@@ -151,12 +171,44 @@ public:
     static bool notify(const Protocol& p, Buffer *b) {
         return _observed.notify(p, b);
     }
+    void start_PTP_Slave() {
+
+    }
     void update(Observed *o, const Protocol& p, Buffer *b) {
         Frame *f = reinterpret_cast<Frame*>(b->frame()->data<char>());
         short port_receiver = f->port_receiver();
         short port_sender = f->port_sender();
         short flags = f->flags();
         short frame_id = f->frame_id();
+		Address from = f->from();
+		
+        if (!f->is_Application()) {
+			if (f->is_Syn()) {
+				ticks[1] = 100;
+			}
+			if (f->is_Follow_Up()) {
+				// recuperar o T1
+				ticks[0] = f->time();
+				Frame *f_delay_req = new Frame(_nic->broadcast(), addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::DELAY_REQ);
+				Delay(2*SEC);
+				db<Bolinha_Protocol>(WRN) << "mandando delay req" << endl;
+				ticks[2] = 100;
+				_nic->send(from, Prot_Bolinha, f_delay_req, sizeof(Frame));
+
+			}
+			if (f->is_Delay_Req()) {
+				ticks[3] = 100;
+				Delay(2*SEC);
+				Frame *f_delay_res = new Frame(from, addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::DELAY_RES);
+				f->time(ticks[3]);
+				_nic->send(from, Prot_Bolinha, f_delay_res, sizeof(Frame));
+			}
+			if (f->is_Delay_Res()) {
+				ticks[3] = f->time();
+				// TODO: Sincronização
+			}
+			Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
+        }
         Address frame_add = f->from();
         if (port_receiver != _using_port && port_receiver != 0) {
             db<Thread>(WRN) << "Porta " << _using_port << " recebeu frame para porta " << port_receiver << endl;
@@ -257,12 +309,14 @@ public:
                                     // 010 -> Delay_Req
                                     // 011 -> Delay_Res
                                     // 100 -> Request_TS
+                                    // 111 -> APPLICATION
+        Timer::Tick _time;
     } __attribute__((packed));
 
     class Frame: private Header {
     public:
         Frame(Address to, Address from, int packet_id, bool* status, void* data, short port_sender, 
-            short port_receiver,size_t len, MESSAGE_TYPE type = MESSAGE_TYPE::SYN): 
+            short port_receiver,size_t len, MESSAGE_TYPE type = MESSAGE_TYPE::APPLICATION): 
             Header(from, packet_id, status, port_sender, port_receiver), _len(len), _data(data) {
                 set_ptp_flags(type);
             }
@@ -272,6 +326,12 @@ public:
 
         void flags(char flags) {
             _flags = flags;
+        }
+        void time(Timer::Tick t) {
+            _time = t;
+        }
+        Timer::Tick time() const {
+            return _time;
         }
         void sem(Semaphore * sem) {
             _sem = sem;
@@ -317,6 +377,9 @@ public:
         bool is_Request_TS() {
             return _ptp_flags == 0b100;
         }
+        bool is_Application() {
+            return _ptp_flags == 0b111;
+        }
     private:
         void set_ptp_flags(MESSAGE_TYPE type) {
             switch (type)
@@ -335,6 +398,9 @@ public:
                 break;
             case MESSAGE_TYPE::REQUEST_TS:
                 _ptp_flags = 0b100;
+            case MESSAGE_TYPE::APPLICATION:
+                _ptp_flags = 0b111;
+                break;
             default:
                 break;
             }
@@ -356,6 +422,9 @@ protected:
     Frame_Track _tracking_messages[100];
     Ordered_List<Sem_Track, short> sem_track;
     bool _master;
+	Tick ticks[4] = {-1, -1, -1, -1};
+	Thread * ptp_handler;
+	bool finish_ptp = false;
 };
 
 // bool Bolinha_Protocol::_ports[] = {0};

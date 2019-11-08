@@ -14,20 +14,20 @@ int sender(int port) {
     Bolinha_Protocol * bp = new Bolinha_Protocol(port);
     char *hello;
     if (port == 5000) {
-       hello = "Hello\n";
+        hello = (char*) "Hello\n";
     } else {
-        hello = "olleH\n";
+        hello = (char*) "olleH\n";
     }
     Address d = bp->addr();
     Address bc = bp->broadcast();
     d[5]--;
     cout << "Dado enviado: " << hello << ", para a porta: "<< port << endl;
-    return bp->send(hello, 1500, bc, port);
+    return bp->send(hello, 1500, d, port);
 }
 
 int receiver(int rport) {
     Bolinha_Protocol * bp = new Bolinha_Protocol(rport);
-   // bp->receive(data, 1500);
+    bp->receive(data, 1500);
     cout << "Dado recebido: " << data << ", pela porta: " << rport << endl;
     return 1;
 }
