@@ -80,9 +80,14 @@ public:
     }
 	static int init_ptp(Bolinha_Protocol * _this) {
 		while (!_this->finish_ptp) {
+            Tick time = Alarm::elapsed();
 			Frame *f = new Frame(_this->_nic->broadcast(), _this->addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::SYN);
 			_this->_nic->send(_this->_nic->broadcast(), _this->Prot_Bolinha, f, sizeof(Frame));
-			Delay(20*SEC);
+			Delay(1*SEC);
+			Frame *f_follow_up = new Frame(_this->_nic->broadcast(), _this->addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::FOLLOW_UP);
+			f_follow_up->time(time);
+            _this->_nic->send(_this->_nic->broadcast(), _this->Prot_Bolinha, f_follow_up, sizeof(Frame));
+            Delay(20*SEC);
 		}
 		return 0;
 	}
@@ -194,8 +199,8 @@ public:
 				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP SYN" << endl;
 				ticks[1] = Alarm::elapsed();
 				
-				Frame *f_follow_up = new Frame(_nic->broadcast(), addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::FOLLOW_UP);
-				_nic->send(from, Prot_Bolinha, f_follow_up, sizeof(Frame));
+				//Frame *f_follow_up = new Frame(_nic->broadcast(), addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::FOLLOW_UP);
+				//_nic->send(from, Prot_Bolinha, f_follow_up, sizeof(Frame));
 			}
 			if (f->is_Follow_Up()) {
 				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP FollowUP" << endl;
@@ -214,6 +219,7 @@ public:
 				Frame *f_delay_res = new Frame(from, addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::DELAY_RES);
 				f->time(ticks[3]);
 				ticks[3] = Alarm::elapsed();
+                f_delay_res->time(ticks[3]);
 				_nic->send(from, Prot_Bolinha, f_delay_res, sizeof(Frame));
 			}
 			if (f->is_Delay_Res()) {
