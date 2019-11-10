@@ -73,10 +73,10 @@ public:
         } else {
             db<Bolinha_Protocol>(WRN) << "Falha ao adquirir porta!" << endl;
         }
-		if(port == 420 && _nic->address()[5] == 9) {
+		/*if(port == 420 && _nic->address()[5] == 9) {
 			db<Bolinha_Protocol>(WRN) << "Começando o PTP... " << endl;
 			ptp_handler = new Thread(&init_ptp, this);
-		}
+		}*/
     }
 	static int init_ptp(Bolinha_Protocol * _this) {
 		while (!_this->finish_ptp) {
@@ -193,8 +193,9 @@ public:
         short frame_id = f->frame_id();
 		Address from = f->from();
 		
-        if (!f->is_Application()) {
+        if (f->is_Application() == false) {
 			db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP" << endl;
+            db<Bolinha_Protocol>(WRN) << "is app? " << f->is_Application() << endl;
 			if (f->is_Syn()) {
 				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP SYN" << endl;
 				ticks[1] = Alarm::elapsed();
@@ -235,6 +236,7 @@ public:
 
 			}
 			Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
+            return;
         }
         Address frame_add = f->from();
         if (port_receiver != _using_port && port_receiver != 0) {
@@ -331,7 +333,7 @@ public:
         char  _flags; // ACK
         short _port_sender;
         short _port_receiver;
-        int _ptp_flags:3;           // 000 -> SYN
+        unsigned int _ptp_flags:3;           // 000 -> SYN
                                     // 001 -> Follow_UP
                                     // 010 -> Delay_Req
                                     // 011 -> Delay_Res
@@ -346,6 +348,7 @@ public:
             short port_receiver,size_t len, MESSAGE_TYPE type = MESSAGE_TYPE::APPLICATION): 
             Header(from, packet_id, status, port_sender, port_receiver), _len(len), _data(data) {
                 set_ptp_flags(type);
+                db<Bolinha_Protocol>(WRN) << "ptp flags = " << _ptp_flags << endl;
             }
         typedef unsigned char Data[];
         size_t _len;

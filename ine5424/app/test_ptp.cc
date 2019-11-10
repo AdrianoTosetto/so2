@@ -25,7 +25,7 @@ int receiver() {
     Bolinha_Protocol * bp = new Bolinha_Protocol(420);
     //bp->receive(data, 1500);
     cout << "Dado recebido: " << data << ", pela porta: " << 420 << endl;
-    Bolinha_Protocol::add_time(1000000);
+    //Bolinha_Protocol::add_time(1000000);
     return 1;
 }
 
