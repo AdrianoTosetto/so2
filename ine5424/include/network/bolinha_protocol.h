@@ -80,8 +80,9 @@ public:
     }
 	static int init_ptp(Bolinha_Protocol * _this) {
 		while (!_this->finish_ptp) {
+            Delay(20*SEC);
             db<Bolinha_Protocol>(WRN) << "Iniciando rodada de PTP"  << endl;
-            db<Bolinha_Protocol>(WRN) << "Tempo do daddy: " << Alarm::_elapsed <<endl;
+            db<Bolinha_Protocol>(WRN) << "Tempo do master: " << Alarm::_elapsed <<endl;
             Tick time = Alarm::elapsed();
 			Frame *f = new Frame(_this->_nic->broadcast(), _this->addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::SYN);
 			_this->_nic->send(_this->_nic->broadcast(), _this->Prot_Bolinha, f, sizeof(Frame));
@@ -89,7 +90,6 @@ public:
 			Frame *f_follow_up = new Frame(_this->_nic->broadcast(), _this->addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::FOLLOW_UP);
 			f_follow_up->time(time);
             _this->_nic->send(_this->_nic->broadcast(), _this->Prot_Bolinha, f_follow_up, sizeof(Frame));
-            Delay(20*SEC);
 		}
 		return 0;
 	}
@@ -225,15 +225,15 @@ public:
 				// recuperar o T1                
 				ticks[0] = f->time();                
 				Frame *f_delay_req = new Frame(from, addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::DELAY_REQ);                
-				// Delay(2*SEC);
+				// Delay(1*SEC);
 				ticks[2] = Alarm::elapsed();
 				db<Bolinha_Protocol>(WRN) << "mandando delay req" << endl;
 				_nic->send(from, Prot_Bolinha, f_delay_req, sizeof(Frame));
 
 			} else if (f->is_Delay_Req()) {
 				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP Delay Req" << endl;
-				Tick time = f->time();
-				// Delay(2*SEC);
+				Tick time = Alarm::elapsed();//f->time();
+				// Delay(1*SEC);
 				Frame *f_delay_res = new Frame(from, addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::DELAY_RES);
 				// ticks[3] = Alarm::elapsed();
                 f_delay_res->time(time);
@@ -244,10 +244,11 @@ public:
 				// TODO: Sincronização
                 // PD =  (T2 - T1) + (T4 - T3) / 2
                 // OFFSET = T2 - T1 - PDS
-                auto propagation_delay = ((ticks[1] - ticks[0]) + (ticks[3] - ticks[2])) / 2;
-                auto offset = (ticks[1] - ticks[0]) - propagation_delay;
+                Tick propagation_delay = ((ticks[1] - ticks[0]) + (ticks[3] - ticks[2])) / 2;
+                Tick offset = (ticks[1] - ticks[0]) - propagation_delay;
                 db<Bolinha_Protocol>(WRN) << "Offset Calculado " << offset <<endl;
                 Alarm::_elapsed -= offset;
+                db<Bolinha_Protocol>(WRN) << "Terminando rodada de PTP"  << endl;
                 db<Bolinha_Protocol>(WRN) << "Novo tempo do slave: " << Alarm::_elapsed <<endl;
 			}
 			// Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
