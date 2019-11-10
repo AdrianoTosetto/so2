@@ -13,11 +13,15 @@ int sender() {
     Delay (5*1000000);
     
     Bolinha_Protocol * bp = new Bolinha_Protocol(420);
-    // char *hello = "hello\n";
-    // Address d = bp->addr();
-    // Address bc = bp->broadcast();
+    char *hello = "hello\n";
+    Address d = bp->addr();
+    Address bc = bp->broadcast();
+    d[5]--;
     // cout << "Dado enviado: " << hello << ", para a porta: "<< 420 << endl;
-    // return bp->send(hello, 1500, d, 420);
+    Bolinha_Protocol::add_time(1000000);
+    bp->send(hello, 1500, d, 420);
+    bp->send(hello, 1500, d, 420);
+    bp->send(hello, 1500, d, 420);
     Delay(360*1000000);
     return 0;
 }
@@ -25,9 +29,10 @@ int sender() {
 int receiver() {
     // Delay (5000000);
     Bolinha_Protocol * bp = new Bolinha_Protocol(420);
-    // bp->receive(data, 1500);
-    // cout << "Dado recebido: " << data << ", pela porta: " << 420 << endl;
-    Bolinha_Protocol::add_time(1000000);
+    bp->receive(data, 1500);
+    bp->receive(data, 1500);
+    bp->receive(data, 1500);
+    //cout << "Dado recebido: " << data << ", pela porta: " << 420 << endl;
     Delay(360*1000000);
     return 1;
 }
@@ -38,16 +43,16 @@ int main()
     
     cout << "NIC Test" << endl;
     cout << "Meu endereco eh " << nic->address() << endl;
-    if(nic->address()[5] == 9) { // sender
-        cout << "começando sender (master) " << endl;
+    if(nic->address()[5] == 9) { //slave
+        cout << "começando sender (slave) " << endl;
         Thread *t = new Thread(&sender);
         t->join();
-        cout << "Tempo do mestre eh " << Bolinha_Protocol::time() << endl;
+        cout << "Tempo do slave eh " << Bolinha_Protocol::time() << endl;
     } else {
         Delay(1000000);
         Thread *t = new Thread(&receiver);
         t->join();
-        cout << "Tempo corrigido do escravo eh " << Bolinha_Protocol::time() << endl;
+        cout << "Tempo corrigido do mestre eh " << Bolinha_Protocol::time() << endl;
     }
 
     cout << "Kkk saindo" << endl;

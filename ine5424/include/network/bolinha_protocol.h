@@ -73,25 +73,18 @@ public:
         } else {
             db<Bolinha_Protocol>(WRN) << "Falha ao adquirir porta!" << endl;
         }
-		if(port == 420 && _nic->address()[5] == 9) {
-			db<Bolinha_Protocol>(WRN) << "Começando o PTP... " << endl;
-			ptp_handler = new Thread(&init_ptp, this);
-		}
     }
 	static int init_ptp(Bolinha_Protocol * _this) {
-		while (!_this->finish_ptp) {
-            Delay(20*SEC);
-            db<Bolinha_Protocol>(WRN) << "Iniciando rodada de PTP"  << endl;
-            db<Bolinha_Protocol>(WRN) << "Tempo do master: " << Alarm::_elapsed <<endl;
-            Tick time = Alarm::elapsed();
-			Frame *f = new Frame(_this->_nic->broadcast(), _this->addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::SYN);
-			_this->_nic->send(_this->_nic->broadcast(), _this->Prot_Bolinha, f, sizeof(Frame));
-			// Delay(1*SEC);
-			Frame *f_follow_up = new Frame(_this->_nic->broadcast(), _this->addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::FOLLOW_UP);
-			f_follow_up->time(time);
-            _this->_nic->send(_this->_nic->broadcast(), _this->Prot_Bolinha, f_follow_up, sizeof(Frame));
-		}
-		return 0;
+        db<Bolinha_Protocol>(WRN) << "Iniciando rodada de PTP"  << endl;
+        db<Bolinha_Protocol>(WRN) << "Tempo do master: " << Alarm::_elapsed <<endl;
+        Tick time = Alarm::elapsed();
+        Frame *f = new Frame(_this->_nic->broadcast(), _this->addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::SYN);
+        _this->_nic->send(_this->_nic->broadcast(), _this->Prot_Bolinha, f, sizeof(Frame));
+        // Delay(1*SEC);
+        Frame *f_follow_up = new Frame(_this->_nic->broadcast(), _this->addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::FOLLOW_UP);
+        f_follow_up->time(time);
+        _this->_nic->send(_this->_nic->broadcast(), _this->Prot_Bolinha, f_follow_up, sizeof(Frame));
+        return 0;
 	}
     virtual ~Bolinha_Protocol() {
         CPU::fdec<char>(_ports[_using_port]);
@@ -124,6 +117,7 @@ public:
             Frame *f = new Frame(to, addr(), CPU::finc<short int>(_packet_count), &status, data, _using_port, port_receiver, 5);
             f->sem(&sem);
             f->flags(0);
+            f->time(Alarm::elapsed());
             Sem_Track st(f->frame_id(), &sem, &status);
             
             Sem_Track_El e(&st, f->frame_id());
@@ -171,21 +165,22 @@ public:
         _frame_track_count = (_frame_track_count + 1) % 100;
         _m.unlock();
 
+        db<Bolinha_Protocol>(WRN) << "Dado recebido: " << f->data<char>() << endl;
         char* ack_data = (char*) "ACK\n";
         Frame *ack = new Frame(f->from(), addr(), f->frame_id(), f->status(), ack_data, _using_port, f->port_sender(), 0);
         ack->flags(1);
         //if (_delay_ack) Delay (5*1000000);
         _nic->send(f->from(), Prot_Bolinha, ack, sizeof(Frame));
 
+        if (Alarm::elapsed() - f->time() > 5000 or Alarm::elapsed() - f->time() < -5000) {
+            init_ptp(this);
+        }
         _nic->free(rec);
 
         return size;
     }
     static bool notify(const Protocol& p, Buffer *b) {
         return _observed.notify(p, b);
-    }
-    void start_PTP_Slave() {
-
     }
     void update(Observed *o, const Protocol& p, Buffer *b) {
         Frame *f = reinterpret_cast<Frame*>(b->frame()->data<char>());
