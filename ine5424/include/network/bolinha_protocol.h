@@ -73,17 +73,19 @@ public:
         } else {
             db<Bolinha_Protocol>(WRN) << "Falha ao adquirir porta!" << endl;
         }
-		/*if(port == 420 && _nic->address()[5] == 9) {
+		if(port == 420 && _nic->address()[5] == 9) {
 			db<Bolinha_Protocol>(WRN) << "Começando o PTP... " << endl;
 			ptp_handler = new Thread(&init_ptp, this);
-		}*/
+		}
     }
 	static int init_ptp(Bolinha_Protocol * _this) {
 		while (!_this->finish_ptp) {
+            db<Bolinha_Protocol>(WRN) << "Iniciando rodada de PTP"  << endl;
+            db<Bolinha_Protocol>(WRN) << "Tempo do daddy: " << Alarm::_elapsed <<endl;
             Tick time = Alarm::elapsed();
 			Frame *f = new Frame(_this->_nic->broadcast(), _this->addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::SYN);
 			_this->_nic->send(_this->_nic->broadcast(), _this->Prot_Bolinha, f, sizeof(Frame));
-			Delay(1*SEC);
+			// Delay(1*SEC);
 			Frame *f_follow_up = new Frame(_this->_nic->broadcast(), _this->addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::FOLLOW_UP);
 			f_follow_up->time(time);
             _this->_nic->send(_this->_nic->broadcast(), _this->Prot_Bolinha, f_follow_up, sizeof(Frame));
@@ -194,6 +196,7 @@ public:
 		Address from = f->from();
 
         if (from == addr()) {
+            db<Bolinha_Protocol>(WRN) << "Mensagem redundante" << endl;
             if (port_sender == _using_port) {
                 _nic->free(b);
                 return;
@@ -202,10 +205,10 @@ public:
             for (int i = 1; i < 1000; i++) {
                 pc += _ports[i];
             }
-            if (pc <= 1) {
-                _nic->free(b);
-                return;
-            }
+            // if (pc <= 1) {
+            //     _nic->free(b);
+            //     return;
+            // }
         }
 		
         if (f->is_Application() == false) {
@@ -217,28 +220,25 @@ public:
 				
 				//Frame *f_follow_up = new Frame(_nic->broadcast(), addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::FOLLOW_UP);
 				//_nic->send(from, Prot_Bolinha, f_follow_up, sizeof(Frame));
-			}
-			if (f->is_Follow_Up()) {
+			} else if (f->is_Follow_Up()) {
 				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP FollowUP" << endl;
-				// recuperar o T1
-				ticks[0] = f->time();
-				Frame *f_delay_req = new Frame(_nic->broadcast(), addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::DELAY_REQ);
-				Delay(2*SEC);
-				db<Bolinha_Protocol>(WRN) << "mandando delay req" << endl;
+				// recuperar o T1                
+				ticks[0] = f->time();                
+				Frame *f_delay_req = new Frame(from, addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::DELAY_REQ);                
+				// Delay(2*SEC);
 				ticks[2] = Alarm::elapsed();
+				db<Bolinha_Protocol>(WRN) << "mandando delay req" << endl;
 				_nic->send(from, Prot_Bolinha, f_delay_req, sizeof(Frame));
 
-			}
-			if (f->is_Delay_Req()) {
+			} else if (f->is_Delay_Req()) {
 				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP Delay Req" << endl;
 				Tick time = f->time();
-				Delay(2*SEC);
+				// Delay(2*SEC);
 				Frame *f_delay_res = new Frame(from, addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::DELAY_RES);
 				// ticks[3] = Alarm::elapsed();
                 f_delay_res->time(time);
 				_nic->send(from, Prot_Bolinha, f_delay_res, sizeof(Frame));
-			}
-			if (f->is_Delay_Res()) {
+			} else if (f->is_Delay_Res()) {
 				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP Delay Res" << endl;
 				ticks[3] = f->time();
 				// TODO: Sincronização
@@ -248,9 +248,10 @@ public:
                 auto offset = (ticks[1] - ticks[0]) - propagation_delay;
                 db<Bolinha_Protocol>(WRN) << "Offset Calculado " << offset <<endl;
                 Alarm::_elapsed -= offset;
-
+                db<Bolinha_Protocol>(WRN) << "Novo tempo do slave: " << Alarm::_elapsed <<endl;
 			}
-			Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
+			// Concurrent_Observer<Observer::Observed_Data, Protocol>::update(p, b);
+            _nic->free(b);
             return;
         }
         Address frame_add = f->from();
