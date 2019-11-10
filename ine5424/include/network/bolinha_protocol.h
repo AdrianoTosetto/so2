@@ -215,11 +215,11 @@ public:
 			}
 			if (f->is_Delay_Req()) {
 				db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP Delay Req" << endl;
+				Tick time = f->time();
 				Delay(2*SEC);
 				Frame *f_delay_res = new Frame(from, addr(), -1, 0, nullptr, 420, 420, 0, MESSAGE_TYPE::DELAY_RES);
-				f->time(ticks[3]);
-				ticks[3] = Alarm::elapsed();
-                f_delay_res->time(ticks[3]);
+				// ticks[3] = Alarm::elapsed();
+                f_delay_res->time(time);
 				_nic->send(from, Prot_Bolinha, f_delay_res, sizeof(Frame));
 			}
 			if (f->is_Delay_Res()) {
