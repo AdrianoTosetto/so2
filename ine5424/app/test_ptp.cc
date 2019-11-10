@@ -11,6 +11,7 @@ NIC<Ethernet> *nic = Traits<Ethernet>::DEVICES::Get<0>::Result::get(0);
 char data[1500];
 int sender() {
     Delay (5000000);
+    
     Bolinha_Protocol * bp = new Bolinha_Protocol(420);
     char *hello = "hello\n";
     Address d = bp->addr();
@@ -24,6 +25,7 @@ int receiver() {
     Bolinha_Protocol * bp = new Bolinha_Protocol(420);
     //bp->receive(data, 1500);
     cout << "Dado recebido: " << data << ", pela porta: " << 420 << endl;
+    Bolinha_Protocol::add_time(1000000);
     return 1;
 }
 
@@ -35,9 +37,14 @@ int main()
     cout << "Meu endereco eh " << nic->address() << endl;
     if(nic->address()[5] == 9) { // sender
         cout << "começando sender (master) " << endl;
-        new Thread(&sender);
+        Thread *t = new Thread(&sender);
+        t->join();
+        cout << "Tempo do mestre eh " << Bolinha_Protocol::time() << endl;
     } else {
-        new Thread(&receiver);
+        Delay(1000000);
+        Thread *t = new Thread(&receiver);
+        t->join();
+        cout << "Tempo corrigido do escravinho eh " << Bolinha_Protocol::time() << endl;
     }
 
     cout << "Kkk saindo" << endl;

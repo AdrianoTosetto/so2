@@ -147,6 +147,12 @@ public:
         }
         return bytes;
     }
+    static Tick time() {
+        return Alarm::elapsed();
+    }
+    static void add_time(Tick t) {
+        Alarm::elapsed() += t;
+    }
     int receive(void *buffer, size_t size) {
         Buffer *rec = updated();
         Frame *f = reinterpret_cast<Frame*>(rec->frame()->data<char>());
