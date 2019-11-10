@@ -192,6 +192,21 @@ public:
         short flags = f->flags();
         short frame_id = f->frame_id();
 		Address from = f->from();
+
+        if (from == addr()) {
+            if (port_sender == _using_port) {
+                _nic->free(b);
+                return;
+            }
+            int pc = 0;
+            for (int i = 1; i < 1000; i++) {
+                pc += _ports[i];
+            }
+            if (pc <= 1) {
+                _nic->free(b);
+                return;
+            }
+        }
 		
         if (f->is_Application() == false) {
 			db<Bolinha_Protocol>(WRN) << "Identificando pacote de PTP" << endl;
