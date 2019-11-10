@@ -1,0 +1,13 @@
+O teste para validação é o test_ptp:
+
+O traits precisam estar com essas linhas:
+
+static const unsigned int NODES = 2; // (> 1 => NETWORKING)
+static const unsigned int EXPECTED_SIMULATION_TIME = 200; // s (0 => not simulated)
+
+compilar: make APPLICATION=test_ptp
+executar: make APPLICATION=test_ptp run
+
+
+
+Nosso arquivo modificado está no: include/network/bolinha_protocol.h
