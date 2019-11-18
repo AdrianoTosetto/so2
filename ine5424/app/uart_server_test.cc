@@ -10,7 +10,7 @@ int main()
 
     cout << "UART test\n" << endl;
 
-    UART uart(0, 115200, 8, 0, 1);
+    UART uart(1, 115200, 8, 0, 1);
 
     cout << "Loopback transmission test (conf = 115200 8N1):";
     uart.loopback(false);
