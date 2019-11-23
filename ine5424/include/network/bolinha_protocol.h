@@ -97,6 +97,35 @@ public:
             }
         }
         db<Bolinha_Protocol>(WRN) << "nmea: " << nmea_string << endl;
+        scan_comma_for(nmea_string, 0);
+    }
+    // arg = lat | lon
+    int scan_comma_for(char *nmea, int arg) {
+        if (arg == 0) { // lat
+            unsigned int comma_count = 0;
+            unsigned int end = 0, begin = 0;
+            for (unsigned int i = 0; i < strlen(nmea); i++) {
+                if (nmea[i] == ',') comma_count++;
+                if (comma_count == 2 && begin == 0) {
+                    begin = i;
+                    db<Bolinha_Protocol>(WRN) << "comma 2  " << begin << endl;
+                }
+                if (comma_count == 3) {
+                    end = i;
+                    db<Bolinha_Protocol>(WRN) << "comma 3  " << end << endl;
+                    break;
+                }
+                
+            }
+            char lat_str[end - begin + 1]; // +1 = \n
+            for(unsigned int i = begin, j = 0; i <= end; i++, j++) {
+                lat_str[j] = nmea[i];
+                 db<Bolinha_Protocol>(WRN) << "c  " << nmea[i] << endl;
+            }
+            db<Bolinha_Protocol>(WRN) << "LATSTR " << lat_str << endl;
+        }
+
+        return 1;
     }
 	static int init_ptp(Bolinha_Protocol * _this) {
         db<Bolinha_Protocol>(WRN) << "Iniciando rodada de PTP"  << endl;
