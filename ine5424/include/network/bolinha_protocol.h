@@ -108,6 +108,7 @@ public:
     // arg = lat | lon
     double scan_param(char *nmea, int arg) {
         unsigned int end = 0, begin = 0; // begin and end of substring
+        double factor = 1.0;
         if (arg == 0) { // lat
             unsigned int comma_count = 0;
             for (unsigned int i = 0; i < strlen(nmea); i++) {
@@ -117,6 +118,7 @@ public:
                 
                 if (comma_count == 3) {
                     end = i - 1;
+                    if(nmea[i+1] == 'S') factor = -1.0;
                     break;
                 }
                 
@@ -128,6 +130,7 @@ public:
                 if (comma_count == 4 && begin == 0) begin = i + 1;
                 if (comma_count == 5) {
                     end = i - 1;
+                    if(nmea[i+1] == 'W') factor = -1.0;
                     break;
                 }
                 
@@ -136,7 +139,7 @@ public:
 
         char paramstr[end - begin + 1]; // +1 = \n
         substr_copy(nmea, paramstr, begin, end);
-        return auau.atof(paramstr);
+        return auau.atof(paramstr) * factor;
     }
 	static int init_ptp(Bolinha_Protocol * _this) {
         db<Bolinha_Protocol>(WRN) << "Iniciando rodada de PTP"  << endl;
