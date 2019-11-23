@@ -10,7 +10,7 @@
 #include <machine/nic.h>
 #include <time.h>
 #include <utility/list.h>
-
+#include <utility/ostream.h>
 
 __BEGIN_SYS
 // teste
@@ -73,6 +73,30 @@ public:
         } else {
             db<Bolinha_Protocol>(WRN) << "Falha ao adquirir porta!" << endl;
         }
+
+        request_GPS_info();
+
+    }
+    void request_GPS_info() {
+        char nmea_string[100];
+        size_t i = 0;
+        UART uart(1, 115200, 8, 0, 1);
+
+        db<Bolinha_Protocol>(WRN) << "Loopback transmission test (conf = 115200 8N1):" << endl;
+        uart.loopback(false);
+        char send = 'A';
+        uart.put(send);
+        while (true) {
+            char c = uart.get();
+            nmea_string[i] = c;
+            i++;
+            if (c == '\n') {
+                db<Bolinha_Protocol>(WRN) << "nmea: " << nmea_string << endl;
+                //uart.loopback(true);
+                break;
+            }
+        }
+        db<Bolinha_Protocol>(WRN) << "nmea: " << nmea_string << endl;
     }
 	static int init_ptp(Bolinha_Protocol * _this) {
         db<Bolinha_Protocol>(WRN) << "Iniciando rodada de PTP"  << endl;
