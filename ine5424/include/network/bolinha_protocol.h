@@ -78,8 +78,8 @@ public:
         } else {
             db<Bolinha_Protocol>(WRN) << "Falha ao adquirir porta!" << endl;
         }
-
-        request_GPS_info();
+        if (_anchor)
+            request_GPS_info();
 
     }
     void request_GPS_info() {
