@@ -13,7 +13,6 @@ anchors_nmea = {
 
 
 def send_data_to_client(conn, node_id):
-    # TODO: gerar valores aleatórios para as mensagens NMEAs (4 âncoras que já possuem posição definida)
     nmea = anchors_nmea[node_id]
     print('mandando mensagem nema para node ' + node_id + ' nmea = ' + nmea)
     

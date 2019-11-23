@@ -26,6 +26,11 @@ enum MESSAGE_TYPE {
     APPLICATION
 };
 
+inline void substr_copy(char *src, char *dst, size_t begin, size_t end) {
+    unsigned int i = begin, j = 0;
+    for(; i <= end; i++, j++) dst[j] = src[i];
+    dst[j+1] = '\n';
+}
 
 class Bolinha_Protocol: private NIC<Ethernet>::Observer, Concurrent_Observer<Ethernet::Buffer, Ethernet::Protocol>
 {
@@ -97,35 +102,41 @@ public:
             }
         }
         db<Bolinha_Protocol>(WRN) << "nmea: " << nmea_string << endl;
-        scan_comma_for(nmea_string, 0);
+        db<Bolinha_Protocol>(WRN) << "lat: " << scan_param(nmea_string, 0) << endl;
+        db<Bolinha_Protocol>(WRN) << "lon: " << scan_param(nmea_string, 1) << endl;
     }
     // arg = lat | lon
-    int scan_comma_for(char *nmea, int arg) {
+    double scan_param(char *nmea, int arg) {
+        unsigned int end = 0, begin = 0; // begin and end of substring
         if (arg == 0) { // lat
             unsigned int comma_count = 0;
-            unsigned int end = 0, begin = 0;
             for (unsigned int i = 0; i < strlen(nmea); i++) {
                 if (nmea[i] == ',') comma_count++;
-                if (comma_count == 2 && begin == 0) {
-                    begin = i;
-                    db<Bolinha_Protocol>(WRN) << "comma 2  " << begin << endl;
-                }
+                
+                if (comma_count == 2 && begin == 0) begin = i + 1;
+                
                 if (comma_count == 3) {
-                    end = i;
-                    db<Bolinha_Protocol>(WRN) << "comma 3  " << end << endl;
+                    end = i - 1;
                     break;
                 }
                 
             }
-            char lat_str[end - begin + 1]; // +1 = \n
-            for(unsigned int i = begin, j = 0; i <= end; i++, j++) {
-                lat_str[j] = nmea[i];
-                 db<Bolinha_Protocol>(WRN) << "c  " << nmea[i] << endl;
+        } else if (arg == 1) { // lon
+            unsigned int comma_count = 0;
+            for (unsigned int i = 0; i < strlen(nmea); i++) {
+                if (nmea[i] == ',') comma_count++;
+                if (comma_count == 4 && begin == 0) begin = i + 1;
+                if (comma_count == 5) {
+                    end = i - 1;
+                    break;
+                }
+                
             }
-            db<Bolinha_Protocol>(WRN) << "LATSTR " << lat_str << endl;
         }
 
-        return 1;
+        char paramstr[end - begin + 1]; // +1 = \n
+        substr_copy(nmea, paramstr, begin, end);
+        return auau.atof(paramstr);
     }
 	static int init_ptp(Bolinha_Protocol * _this) {
         db<Bolinha_Protocol>(WRN) << "Iniciando rodada de PTP"  << endl;
@@ -196,7 +207,7 @@ public:
             db<Bolinha_Protocol>(WRN) << "Mensagem confirmada, port = " << _using_port << ", ft_id = " << id << ", mac = " << addr() << endl;
         } else  {
             db<Bolinha_Protocol>(WRN) << "Falha ao enviar mensagem, port = " << _using_port << ", ft_id = " << id << ", mac = " << addr() << endl;
-            // db<Bolinha_Protocol>(WRN) << "Falha ao enviar mensagem " << id << endl;
+            //db<Bolinha_Protocol>(WRN) << "Falha ao enviar mensagem " << id << endl;
             bytes = 0;
         }
         return bytes;
@@ -520,6 +531,7 @@ protected:
 	Tick ticks[4] = {-1, -1, -1, -1};
 	Thread * ptp_handler;
 	bool finish_ptp = false;
+    OStream auau;
 };
 
 // bool Bolinha_Protocol::_ports[] = {0};
