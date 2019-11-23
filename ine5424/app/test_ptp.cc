@@ -22,18 +22,18 @@ int sender() {
     bp->send(hello, 1500, d, 420);
     bp->send(hello, 1500, d, 420);
     bp->send(hello, 1500, d, 420);
-    Delay(360*1000000);
+    Delay(5*1000000);
     return 0;
 }
 
 int receiver() {
     // Delay (5000000);
-    Bolinha_Protocol * bp = new Bolinha_Protocol(420);
+    Bolinha_Protocol * bp = new Bolinha_Protocol(420, true);
     bp->receive(data, 1500);
     bp->receive(data, 1500);
     bp->receive(data, 1500);
     //cout << "Dado recebido: " << data << ", pela porta: " << 420 << endl;
-    Delay(360*1000000);
+    Delay(5*1000000);
     return 1;
 }
 
