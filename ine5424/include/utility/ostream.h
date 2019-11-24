@@ -15,6 +15,7 @@ __BEGIN_UTIL
 
 
 constexpr double PI = 3.14159265358979323846264338327950288;
+constexpr double EARTH_RADIUS = 6371000;
 
 inline double fabs(double number) {
 	double ret = number;
@@ -461,6 +462,14 @@ public:
 
     double sin (double x){
         return cos(PI/2 - x);
+    }
+
+    double lon_to_x(double lon, double l0 = 0) {
+        return EARTH_RADIUS * lon * cos(l0);
+    }
+
+    double lat_to_y(double lat) {
+        return EARTH_RADIUS * lat;
     }
 
     double sqrt(double x) {
