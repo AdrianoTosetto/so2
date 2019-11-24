@@ -407,7 +407,7 @@ public:
     class Frame: private Header {
     public:
         Frame(Address to, Address from, int packet_id, bool* status, void* data, short port_sender, 
-            short port_receiver,size_t len, MESSAGE_TYPE type = MESSAGE_TYPE::APPLICATION): 
+            short port_receiver,size_t len): 
             Header(from, packet_id, status, port_sender, port_receiver), _len(len), _data(data) {
             }
         typedef unsigned char Data[];
