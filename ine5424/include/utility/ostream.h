@@ -463,6 +463,15 @@ public:
         return cos(PI/2 - x);
     }
 
+    double sqrt(double x) {
+        if (!x)
+                return 0;
+        double n = 1;
+        for (int i = 0; i < 1000; i++)
+                n = n - (n*n - x)/(2*n);
+        return n;
+}
+
 
 // src: http://beedub.com/Sprite093/src/lib/c/stdlib/atof.c
 private:
