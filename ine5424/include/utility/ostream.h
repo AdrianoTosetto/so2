@@ -13,6 +13,18 @@ extern "C" {
 
 __BEGIN_UTIL
 
+
+constexpr double PI = 3.14159265358979323846264338327950288;
+
+inline double fabs(double number) {
+	double ret = number;
+	*(((int *) &ret) + 1) &= 0x7fffffff;
+	return ret;
+}
+inline double fabs1(double x) {
+	return x >= 0 ? x : -x; 
+}
+
 class OStream
 {
 public:
@@ -426,6 +438,31 @@ public:
         }
         return result;
     }
+
+    inline double deg2rad(double deg) {
+        return deg * PI / 180.0;
+    }
+
+    double cos(double x, double prec = 0.000000000001)
+    {
+        double t, s ;
+        int p;
+        p = 0;
+        s = 1.0;
+        t = 1.0;
+        while(fabs(t/s) > prec)
+        {
+            p++;
+            t = (-t * x * x) / ((2 * p - 1) * (2 * p));
+            s += t;
+        }
+        return s;
+    }
+
+    double sin (double x){
+        return cos(PI/2 - x);
+    }
+
 
 // src: http://beedub.com/Sprite093/src/lib/c/stdlib/atof.c
 private:

@@ -146,6 +146,8 @@ public:
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
     Bolinha_Protocol(short port = 5000, bool anchor = true):
         _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)), _anchor(anchor), _master(anchor) {
+        OStream auau;
+        db<Bolinha_Protocol>(WRN) << "cos(30 graus) " << auau.cos(auau.deg2rad(30)) << endl;
         if (port <= 0)
             return;
         bool res = CPU::tsl<char>(_ports[port]);
