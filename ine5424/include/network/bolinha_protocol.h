@@ -16,6 +16,7 @@ __BEGIN_SYS
 
 #define SEC 1000000
 
+
 inline void substr_copy(char *src, char *dst, size_t begin, size_t end) {
     unsigned int i = begin, j = 0;
     for(; i <= end; i++, j++) dst[j] = src[i];
@@ -91,7 +92,7 @@ inline T scan_param(char *nmea, int arg) {
         db<Bolinha_Protocol>(WRN) << "i_mm " << i_mm << endl;
         db<Bolinha_Protocol>(WRN) << "i_ss " << i_ss << endl;
         db<Bolinha_Protocol>(WRN) << "i_ms " << i_ms << endl;
-        return 1;
+        return (i_hh * 24 * 60 * 60 + i_mm * 60 + i_ss ) * 1000000; // usar o ms aqui
     }
 
     char paramstr[end - begin + 1]; // +1 = \n
@@ -170,6 +171,12 @@ public:
                 break;
             }
         }
+        double lat = scan_param<double>(nmea_string, 0);
+        double lon = scan_param<double>(nmea_string, 1);
+        Tick ts = scan_param<Tick>(nmea_string, 2);
+        _ts = ts;
+        _x = lat; // transformar pra x
+        _y = lon; // tranformar para y
         db<Bolinha_Protocol>(WRN) << "nmea: " << nmea_string << endl;
         db<Bolinha_Protocol>(WRN) << "lat: " << scan_param<double>(nmea_string, 0) << endl;
         db<Bolinha_Protocol>(WRN) << "lon: " << scan_param<double>(nmea_string, 1) << endl;
@@ -365,8 +372,10 @@ public:
     class Header {
     public:    
 
-        Header(Address from, short frame_id, bool* status, short port_sender, short port_receiver): 
-        _from(from), _frame_id(frame_id), _status(status), _flags(0), _port_sender(port_sender), _port_receiver(port_receiver)
+        Header(Address from, short frame_id, bool* status, short port_sender, 
+            short port_receiver, double x, double y, Tick ts): 
+        _from(from), _frame_id(frame_id), _status(status), _flags(0), _port_sender(port_sender),
+            _port_receiver(port_receiver), _x(x), _y(y), _ts(ts)
         {}
 
         void flags(char flags) {
@@ -401,14 +410,17 @@ public:
         Timer::Tick _time;
         double _x;
         double _y;
+        Tick _ts;
 
     } __attribute__((packed));
 
     class Frame: private Header {
     public:
         Frame(Address to, Address from, int packet_id, bool* status, void* data, short port_sender, 
-            short port_receiver,size_t len, MESSAGE_TYPE type = MESSAGE_TYPE::APPLICATION): 
-            Header(from, packet_id, status, port_sender, port_receiver), _len(len), _data(data) {
+            short port_receiver,size_t len, double  x = 0, double y = 0, Tick ts = 0): 
+            Header(from, packet_id, status, port_sender, port_receiver, x, y, ts), _len(len), _data(data) 
+            {
+                
             }
         typedef unsigned char Data[];
         size_t _len;
@@ -423,6 +435,9 @@ public:
         void coordinates(double x, double y) {
             _x = x;
             _y = y;
+        }
+        void timestamp(Tick ts) {
+            _ts = ts;
         }
         Timer::Tick time() const {
             return _time;
@@ -475,6 +490,9 @@ protected:
     bool _anchor;
     bool _master;
 	Tick ticks[4] = {-1, -1, -1, -1};
+    double _x = 0;
+    double _y = 0;
+    Tick _ts = 0;
 };
 
 // bool Bolinha_Protocol::_ports[] = {0};
