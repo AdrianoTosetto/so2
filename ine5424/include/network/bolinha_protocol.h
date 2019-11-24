@@ -32,6 +32,84 @@ inline void substr_copy(char *src, char *dst, size_t begin, size_t end) {
     dst[j+1] = '\n';
 }
 
+// arg = lat | lon. T = double for lat, lon, T = Ticks for timestamp
+template<typename T>
+inline T scan_param(char *nmea, int arg) {
+    OStream auau;
+    unsigned int end = 0, begin = 0; // begin and end of substring
+    double factor = 1.0;
+    if (arg == 0) { // lat
+        unsigned int comma_count = 0;
+        for (unsigned int i = 0; i < strlen(nmea); i++) {
+            if (nmea[i] == ',') comma_count++;
+            
+            if (comma_count == 2 && begin == 0) begin = i + 1;
+            
+            if (comma_count == 3) {
+                end = i - 1;
+                if(nmea[i+1] == 'S') factor = -1.0;
+                break;
+            }
+            
+        }
+    } else if (arg == 1) { // lon
+        unsigned int comma_count = 0;
+        for (unsigned int i = 0; i < strlen(nmea); i++) {
+            if (nmea[i] == ',') comma_count++;
+            if (comma_count == 4 && begin == 0) begin = i + 1;
+            if (comma_count == 5) {
+                end = i - 1;
+                if(nmea[i+1] == 'W') factor = -1.0;
+                break;
+            }
+            
+        }
+    } else if (arg == 2) { //timestamp miauuuuuuu
+        // $GPGGA,092750.000,...
+        char hh[3]; // -> 09
+        char mm[3]; // -> 27
+        char ss[3]; // -> 50
+        char ms[7] = {'0', '0', '0', '0', '0', '0', '\n'};   // -> 000, no defined size, max size = 6
+
+
+        hh[0] = nmea[7];
+        hh[1] = nmea[8];
+        hh[2] = '\n';
+
+        mm[0] = nmea[9];
+        mm[1] = nmea[10];
+        mm[2] = '\n';
+
+        ss[0] = nmea[11];
+        ss[1] = nmea[12];
+        ss[2] = '\n';
+        unsigned int i = 14;
+        unsigned int k = 5;
+        while(nmea[i] != ',') i++;
+        i-=1;
+        while(nmea[i] != '.') {
+            ms[k] = nmea[i];
+            i--;
+            k--;
+        }
+        int i_hh = auau.atoi(hh);
+        int i_mm = auau.atoi(mm);
+        int i_ss = auau.atoi(ss);
+        int i_ms = auau.atoi(ms);
+
+        db<Bolinha_Protocol>(WRN) << "i_hh " << i_hh << endl;
+        db<Bolinha_Protocol>(WRN) << "i_mm " << i_mm << endl;
+        db<Bolinha_Protocol>(WRN) << "i_ss " << i_ss << endl;
+        db<Bolinha_Protocol>(WRN) << "i_ms " << i_ms << endl;
+        return 1;
+    }
+
+    char paramstr[end - begin + 1]; // +1 = \n
+    substr_copy(nmea, paramstr, begin, end);
+    return auau.atof(paramstr) * factor;
+}
+
+
 class Bolinha_Protocol: private NIC<Ethernet>::Observer, Concurrent_Observer<Ethernet::Buffer, Ethernet::Protocol>
 {
 
@@ -66,7 +144,7 @@ public:
     typedef struct Frame_Track FT;
 
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
-    Bolinha_Protocol(short port = 5000, bool anchor = false):
+    Bolinha_Protocol(short port = 5000, bool anchor = true):
         _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)), _anchor(anchor), _master(anchor) {
         if (port <= 0)
             return;
@@ -101,44 +179,10 @@ public:
             }
         }
         db<Bolinha_Protocol>(WRN) << "nmea: " << nmea_string << endl;
-        db<Bolinha_Protocol>(WRN) << "lat: " << scan_param(nmea_string, 0) << endl;
-        db<Bolinha_Protocol>(WRN) << "lon: " << scan_param(nmea_string, 1) << endl;
-    }
-    // arg = lat | lon
-    double scan_param(char *nmea, int arg) {
-        unsigned int end = 0, begin = 0; // begin and end of substring
-        double factor = 1.0;
-        if (arg == 0) { // lat
-            unsigned int comma_count = 0;
-            for (unsigned int i = 0; i < strlen(nmea); i++) {
-                if (nmea[i] == ',') comma_count++;
-                
-                if (comma_count == 2 && begin == 0) begin = i + 1;
-                
-                if (comma_count == 3) {
-                    end = i - 1;
-                    if(nmea[i+1] == 'S') factor = -1.0;
-                    break;
-                }
-                
-            }
-        } else if (arg == 1) { // lon
-            unsigned int comma_count = 0;
-            for (unsigned int i = 0; i < strlen(nmea); i++) {
-                if (nmea[i] == ',') comma_count++;
-                if (comma_count == 4 && begin == 0) begin = i + 1;
-                if (comma_count == 5) {
-                    end = i - 1;
-                    if(nmea[i+1] == 'W') factor = -1.0;
-                    break;
-                }
-                
-            }
-        }
+        db<Bolinha_Protocol>(WRN) << "lat: " << scan_param<double>(nmea_string, 0) << endl;
+        db<Bolinha_Protocol>(WRN) << "lon: " << scan_param<double>(nmea_string, 1) << endl;
+        db<Bolinha_Protocol>(WRN) << "ts: " << scan_param<Tick>(nmea_string, 2) << endl;
 
-        char paramstr[end - begin + 1]; // +1 = \n
-        substr_copy(nmea, paramstr, begin, end);
-        return auau.atof(paramstr) * factor;
     }
     virtual ~Bolinha_Protocol() {
         CPU::fdec<char>(_ports[_using_port]);
@@ -489,7 +533,6 @@ protected:
 	Tick ticks[4] = {-1, -1, -1, -1};
 	Thread * ptp_handler;
 	bool finish_ptp = false;
-    OStream auau;
 };
 
 // bool Bolinha_Protocol::_ports[] = {0};

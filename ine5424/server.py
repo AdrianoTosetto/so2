@@ -7,7 +7,7 @@ PORT = 65432        # Port to listen on (non-privileged ports are > 1023)
 SEND_DATA_TO_CLIENT = True
 
 anchors_nmea = {
-    'A': '$GPGGA,183730,3907.356,N,12102.482,W,1,05,1.6,646.4,M,-24.1,M,,*75\n',
+    'A': '$GPGGA,092750.0123,5321.6802,N,00630.3372,W,1,8,1.03,61.7,M,55.2,M,,*76\n',
     'B': '$GPGGA,666666,6666.555,S,44444.333,E,2,06,2.5,777.1,N,-74.2,N,,*86\n'
 }
 
