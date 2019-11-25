@@ -188,19 +188,10 @@ public:
                 break;
             }
         }
-<<<<<<< HEAD
         if (_id == 'A') {
             _x = 0;
             _y = 0;
         }
-=======
-        double lat = scan_param<double>(nmea_string, 0);
-        double lon = scan_param<double>(nmea_string, 1);
-        Tick ts = scan_param<Tick>(nmea_string, 2);
-        _ts = ts;
-        _x = lat; // transformar pra x
-        _y = lon; // tranformar para y
->>>>>>> 091b43bef1171bd28bd06fcbd86abeba8331bf71
         db<Bolinha_Protocol>(WRN) << "nmea: " << nmea_string << endl;
         db<Bolinha_Protocol>(WRN) << "lat: " << scan_param<double>(nmea_string, 0) << endl;
         db<Bolinha_Protocol>(WRN) << "lon: " << scan_param<double>(nmea_string, 1) << endl;
@@ -465,11 +456,7 @@ public:
         Timer::Tick _time;
         double _x;
         double _y;
-<<<<<<< HEAD
         char _sender_id;
-=======
-        Tick _ts;
->>>>>>> 091b43bef1171bd28bd06fcbd86abeba8331bf71
 
     } __attribute__((packed));
 
@@ -495,13 +482,8 @@ public:
             _x = x;
             _y = y;
         }
-<<<<<<< HEAD
         void sender_id(char id) {
             _sender_id = id;
-=======
-        void timestamp(Tick ts) {
-            _ts = ts;
->>>>>>> 091b43bef1171bd28bd06fcbd86abeba8331bf71
         }
         Timer::Tick time() const {
             return _time;
@@ -563,16 +545,10 @@ protected:
     bool _anchor;
     bool _master;
 	Tick ticks[4] = {-1, -1, -1, -1};
-<<<<<<< HEAD
     double _x;
     double _y;
     char _id; 
     Received_Points _rps[2];
-=======
-    double _x = 0;
-    double _y = 0;
-    Tick _ts = 0;
->>>>>>> 091b43bef1171bd28bd06fcbd86abeba8331bf71
 };
 
 // bool Bolinha_Protocol::_ports[] = {0};
