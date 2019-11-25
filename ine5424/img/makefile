@@ -11,6 +11,10 @@ OUTPUT		:= $(addsuffix .out,$(APPLICATION))
 PEER		:= p-$(APPLICATION)
 PEER_IMAGE	:= p-$(IMAGE)
 PEER_OUTPUT	:= p-$(OUTPUT)
+PEER2		:= p2-$(APPLICATION)
+PEER_IMAGE2	:= p2-$(IMAGE)
+PEER_OUTPUT2:= p2-$(OUTPUT)
+
 
 ifeq ($(MMOD),emote3)
 FLASH		:= $(addsuffix .hex,$(APPLICATION))
@@ -34,10 +38,13 @@ PEER_DEBUGGER	:= $(subst 1235,1236,$(PEER_DEBUGGER))
 endif
 
 PEER_EMULATOR	:= $(subst 1235,1236,$(EMULATOR))
+PEER_EMULATOR2	:= $(subst 1235,1237,$(EMULATOR))
 
 NETWORK	        := -netdev socket,id=vlan0,mcast=230.0.0.1:1234 -object filter-dump,id=dump0,netdev=vlan0,file=$(APPLICATION).pcap   -device pcnet,id=eth0,netdev=vlan0,mac=56:34:12:00:54:08 -device pcnet,id=eth1,mac=00:00:00:00:00:01
 # add the rest of the line to enable a dhcp server -netdev user,id=1,ipv6=off,restrict=on,net=10.0.1.0/24,host=10.0.1.1,dhcpstart=10.0.1.8
 PEER_NETWORK	:= -netdev socket,id=vlan0,mcast=230.0.0.1:1234 -object filter-dump,id=dump0,netdev=vlan0,file=$(PEER).pcap          -device pcnet,id=eth0,netdev=vlan0,mac=56:34:12:00:54:09 -device pcnet,id=eth1,mac=00:00:00:00:00:02
+
+PEER_NETWORK2	:= -netdev socket,id=vlan0,mcast=230.0.0.1:1234 -object filter-dump,id=dump0,netdev=vlan0,file=$(PEER2).pcap          -device pcnet,id=eth0,netdev=vlan0,mac=56:34:12:00:54:07 -device pcnet,id=eth1,mac=00:00:00:00:00:02
 
 ifeq ($(NODES),1)
 
@@ -45,13 +52,16 @@ all:		strip $(IMAGE)
 
 else
 
-all:		strip $(IMAGE) $(PEER_IMAGE)
+all:		strip $(IMAGE) $(PEER_IMAGE) $(PEER_IMAGE2)
 
 $(IMAGE):	$(APPLICATION)
 		$(MKBI) -x 0 -y 0 -z 0 $@ $<
 
 $(PEER_IMAGE):	$(APPLICATION)
 		$(MKBI) -x 10 -y 10 -z 0 $@ $<
+
+$(PEER_IMAGE2):	$(APPLICATION)
+		$(MKBI) -x 20 -y 20 -z 0 $@ $<
 
 endif
 
@@ -76,6 +86,11 @@ else
 		$(TERM) "timeout --foreground --kill-after=2s --signal=9 $(STIME)s $(EMULATOR)$(PEER_IMAGE) $(PEER_NETWORK) | $(TEE) $(PEER_OUTPUT) \
 		&& $(TCPDUMP) $(PEER).pcap > $(PEER).net \
 		&& read -p 'Press [Enter] key to close ...'" &
+		sleep 2
+		$(TERM) "timeout --foreground --kill-after=2s --signal=9 $(STIME)s $(EMULATOR)$(PEER_IMAGE2) $(PEER_NETWORK2) | $(TEE) $(PEER_OUTPUT2) \
+		&& $(TCPDUMP) $(PEER2).pcap > $(PEER2).net \
+		&& read -p 'Press [Enter] key to close ...'" &
+
 endif
 endif
 
@@ -105,6 +120,7 @@ clean:		FORCE
 		$(CLEAN) $(SYSTEM) $(APPLICATION) $(IMAGE)
 ifneq ($(NODES),1)
 		$(CLEAN) $(PEER_IMAGE)
+		$(CLEAN) $(PEER_IMAGE2)
 endif
 
 .PHONY: prebuild_$(APPLICATION) posbuild_$(APPLICATION) prerun_$(APPLICATION)

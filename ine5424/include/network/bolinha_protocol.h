@@ -25,7 +25,7 @@ inline void substr_copy(char *src, char *dst, size_t begin, size_t end) {
 // arg = lat | lon. T = double for lat, lon, T = Ticks for timestamp
 template<typename T>
 inline T scan_param(char *nmea, int arg) {
-    OStream auau;
+    OStream funcs;
     unsigned int end = 0, begin = 0; // begin and end of substring
     double factor = 1.0;
     if (arg == 0) { // lat
@@ -54,7 +54,7 @@ inline T scan_param(char *nmea, int arg) {
             }
             
         }
-    } else if (arg == 2) { //timestamp miauuuuuuu
+    } else if (arg == 2) {
         // $GPGGA,092750.000,...
         char hh[3]; // -> 09
         char mm[3]; // -> 27
@@ -82,10 +82,10 @@ inline T scan_param(char *nmea, int arg) {
             i--;
             k--;
         }
-        int i_hh = auau.atoi(hh);
-        int i_mm = auau.atoi(mm);
-        int i_ss = auau.atoi(ss);
-        int i_ms = auau.atoi(ms);
+        int i_hh = funcs.atoi(hh);
+        int i_mm = funcs.atoi(mm);
+        int i_ss = funcs.atoi(ss);
+        int i_ms = funcs.atoi(ms);
 
         db<Bolinha_Protocol>(WRN) << "i_hh " << i_hh << endl;
         db<Bolinha_Protocol>(WRN) << "i_mm " << i_mm << endl;
@@ -96,7 +96,7 @@ inline T scan_param(char *nmea, int arg) {
 
     char paramstr[end - begin + 1]; // +1 = \n
     substr_copy(nmea, paramstr, begin, end);
-    return auau.atof(paramstr) * factor;
+    return funcs.atof(paramstr) * factor;
 }
 
 
@@ -130,14 +130,22 @@ public:
         Sem_Track(short frame_id, Semaphore *sem, bool* status):
             _frame_id(frame_id), _sem(sem), _status(status){}
     };
+
+    struct Received_Points {
+        bool set = false;
+        double _x;
+        double _y;
+        double _dist;
+    };
+
     typedef List_Elements::Doubly_Linked_Ordered<Bolinha_Protocol::Sem_Track, short> Sem_Track_El;
     typedef struct Frame_Track FT;
 
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
-    Bolinha_Protocol(short port = 5000, bool anchor = true):
-        _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)), _anchor(anchor), _master(anchor) {
-        OStream auau;
-        db<Bolinha_Protocol>(WRN) << "cos(30 graus) " << auau.cos(auau.deg2rad(30)) << endl;
+    Bolinha_Protocol(short port = 5000, bool anchor = true, char id = 'A'):
+        _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)), _anchor(anchor), _id(id) {
+        OStream funcs;
+        db<Bolinha_Protocol>(WRN) << "cos(30 graus) " << funcs.cos(funcs.deg2rad(30)) << endl;
         if (port <= 0)
             return;
         bool res = CPU::tsl<char>(_ports[port]);
@@ -148,18 +156,27 @@ public:
         } else {
             db<Bolinha_Protocol>(WRN) << "Falha ao adquirir porta!" << endl;
         }
+        if (id == 'A') {
+            _master = true;
+        }
+        db<Bolinha_Protocol>(WRN) <<_id << endl;
         if (_anchor)
             request_GPS_info();
 
     }
     void request_GPS_info() {
+        if (_id == 'B') {
+            _x = 100;
+            _y = 0;
+            return;
+        }
         char nmea_string[100];
         size_t i = 0;
         UART uart(1, 115200, 8, 0, 1);
 
         db<Bolinha_Protocol>(WRN) << "Loopback transmission test (conf = 115200 8N1):" << endl;
         uart.loopback(false);
-        char send = 'A';
+        char send = _id;
         uart.put(send);
         while (true) {
             char c = uart.get();
@@ -169,6 +186,10 @@ public:
                 db<Bolinha_Protocol>(WRN) << "nmea: " << nmea_string << endl;
                 break;
             }
+        }
+        if (_id == 'A') {
+            _x = 0;
+            _y = 0;
         }
         db<Bolinha_Protocol>(WRN) << "nmea: " << nmea_string << endl;
         db<Bolinha_Protocol>(WRN) << "lat: " << scan_param<double>(nmea_string, 0) << endl;
@@ -204,6 +225,11 @@ public:
             f->sem(&sem);
             f->flags(0);
             f->time(Alarm::elapsed());
+            if (_id == 'A' || _id == 'B') {
+                f->coordinates(_x, _y);
+                f->sender_id(_id);
+                db<Bolinha_Protocol>(WRN) << "Enviando minhas coordenadas " << _id << " (" << _x << ", " << _y << ")" << endl;
+            }
             Sem_Track st(f->frame_id(), &sem, &status);
             
             Sem_Track_El e(&st, f->frame_id());
@@ -256,6 +282,11 @@ public:
         Frame *ack = new Frame(f->from(), addr(), f->frame_id(), f->status(), ack_data, _using_port, f->port_sender(), 0);
         ack->flags(1);
         ack->time(Alarm::elapsed());
+        if (_id == 'A' || _id == 'B') {
+            ack->coordinates(_x, _y);
+            ack->sender_id(_id);
+            db<Bolinha_Protocol>(WRN) << "Enviando minhas coordenadas " << _id << " (" << _x << ", " << _y  << ")" << endl;
+        }
         //if (_delay_ack) Delay (5*1000000);
         _nic->send(f->from(), Prot_Bolinha, ack, sizeof(Frame));
         _nic->free(rec);
@@ -273,6 +304,21 @@ public:
         short frame_id = f->frame_id();
 		Address from = f->from();
 
+
+        if (f->sender_id() == 'A') {
+            _rps[0]._x = f->X();
+            _rps[0]._y = f->Y();
+            _rps[0]._dist = 3;
+            _rps[0].set = true;
+        } else if (f->sender_id() == 'B') {
+            _rps[1]._x = f->X();
+            _rps[1]._y = f->Y();
+            _rps[1]._dist = 5;
+            _rps[1].set = true;
+        }
+        if (_rps[0].set && _rps[1].set) {
+            trilaterate();
+        }
         if (from == addr()) {
             db<Bolinha_Protocol>(WRN) << "Mensagem redundante" << endl;
             if (port_sender == _using_port) {
@@ -290,14 +336,12 @@ public:
             return;
         }
         if (Alarm::elapsed() - f->time() > 5000 or Alarm::elapsed() - f->time() < -5000) {
-            if (!_master && f->from()[5] != 9) {
+            if (!_master && f->sender_id() == 'A') {
                 if (ticks[3] != -1) {
                     Tick propagation_delay = ((ticks[1] - ticks[0]) + (ticks[3] - ticks[2])) / 2;
                     Tick offset = (ticks[1] - ticks[0]) - propagation_delay;
                     db<Bolinha_Protocol>(WRN) << "Offset Calculado " << offset << endl;
-                    db<Bolinha_Protocol>(WRN) << "T4: " << ticks[3] << endl;
                     Alarm::_elapsed -= offset;
-                    db<Bolinha_Protocol>(WRN) << "Terminando rodada de PTP"  << endl;
                     db<Bolinha_Protocol>(WRN) << "Novo tempo do slave: " << Alarm::_elapsed << endl;
                 } else if (ticks[0] != -1) {
                     ticks[2] = Alarm::elapsed();
@@ -342,9 +386,6 @@ public:
             short ft_id = _tracking_messages[i]._frame_id;
             Address frame_mac = _tracking_messages[i]._mac;
             _m.unlock();
-            // if (!i)
-            //     db<Bolinha_Protocol>(WRN) << "Tracking, port = " << port << ", ft_id = " << ft_id << ", mac = " << frame_mac << endl;
-
             if(port == port_sender && ft_id == frame_id && frame_add == frame_mac) {
                 _nic->free(b); // nobody is listening to this buffer, so we need call free on it
                 db<Bolinha_Protocol>(WRN) << "Descarte, port = " << port << ", ft_id = " << ft_id << ", mac = " << frame_mac << endl;
@@ -358,6 +399,17 @@ public:
     }
     unsigned int MTU() {
         return Bolinha_MTU; // header precisa ser packed pra calcular certo o mtu
+    }
+
+    void trilaterate() {
+        OStream func;
+        db<Bolinha_Protocol>(WRN) << "Trilaterando" << endl;
+        double r1 = _rps[0]._dist;
+        double r2 = _rps[1]._dist;
+        double U = _rps[1]._x;
+        _x = ((r1*r1) - (r2*r2) + (U*U))/ 2*U;
+        _y = func.sqrt((r1*r1) - (_x*_x));
+        db<Bolinha_Protocol>(WRN) << "Posição trilaterada (" << _x  << ", " << _y << ")" << endl; 
     }
 
     void delay_ack(bool d_ack) { _delay_ack = d_ack; }
@@ -401,6 +453,7 @@ public:
         Timer::Tick _time;
         double _x;
         double _y;
+        char _sender_id;
 
     } __attribute__((packed));
 
@@ -423,6 +476,9 @@ public:
         void coordinates(double x, double y) {
             _x = x;
             _y = y;
+        }
+        void sender_id(char id) {
+            _sender_id = id;
         }
         Timer::Tick time() const {
             return _time;
@@ -456,6 +512,15 @@ public:
         short port_receiver() {
             return _port_receiver;
         }
+        double X() {
+            return _x;
+        }
+        double Y() {
+            return _y;
+        }
+        char sender_id() {
+            return _sender_id;
+        }
     } __attribute__((packed));
 protected:
     NIC<Ethernet> * _nic;
@@ -475,6 +540,10 @@ protected:
     bool _anchor;
     bool _master;
 	Tick ticks[4] = {-1, -1, -1, -1};
+    double _x;
+    double _y;
+    char _id; 
+    Received_Points _rps[2];
 };
 
 // bool Bolinha_Protocol::_ports[] = {0};

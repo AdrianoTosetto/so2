@@ -479,7 +479,7 @@ public:
         for (int i = 0; i < 1000; i++)
                 n = n - (n*n - x)/(2*n);
         return n;
-}
+    }
 
 
 // src: http://beedub.com/Sprite093/src/lib/c/stdlib/atof.c
