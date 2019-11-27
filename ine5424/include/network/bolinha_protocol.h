@@ -318,6 +318,8 @@ public:
             _rps[1].set = true;
         }
         if (_rps[0].set && _rps[1].set) {
+            _rps[0].set = false;
+            _rps[1].set = false;
             trilaterate();
         }
         if (from == addr()) {
@@ -343,6 +345,10 @@ public:
                     Tick offset = (ticks[1] - ticks[0]) - propagation_delay;
                     db<Bolinha_Protocol>(WRN) << "Offset Calculado " << offset << endl;
                     Alarm::_elapsed -= offset;
+                    ticks[0] = -1;
+                    ticks[1] = -1;
+                    ticks[2] = -1;
+                    ticks[3] = -1;
                     db<Bolinha_Protocol>(WRN) << "Novo tempo do slave: " << Alarm::_elapsed << endl;
                 } else if (ticks[0] != -1) {
                     ticks[2] = Alarm::elapsed();
@@ -419,9 +425,9 @@ public:
     public:    
 
         Header(Address from, short frame_id, bool* status, short port_sender, 
-            short port_receiver, double x, double y, Tick ts): 
+            short port_receiver, double x, double y): 
         _from(from), _frame_id(frame_id), _status(status), _flags(0), _port_sender(port_sender),
-            _port_receiver(port_receiver), _x(x), _y(y), _ts(ts)
+            _port_receiver(port_receiver), _x(x), _y(y)
         {}
 
         void flags(char flags) {
@@ -463,8 +469,8 @@ public:
     class Frame: private Header {
     public:
         Frame(Address to, Address from, int packet_id, bool* status, void* data, short port_sender, 
-            short port_receiver,size_t len, double  x = 0, double y = 0, Tick ts = 0): 
-            Header(from, packet_id, status, port_sender, port_receiver, x, y, ts), _len(len), _data(data) 
+            short port_receiver,size_t len, double  x = 0, double y = 0): 
+            Header(from, packet_id, status, port_sender, port_receiver, x, y), _len(len), _data(data) 
             {
                 
             }
