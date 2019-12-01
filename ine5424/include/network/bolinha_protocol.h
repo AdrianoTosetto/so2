@@ -223,7 +223,6 @@ public:
             Alarm alarm_a = Alarm(TIMEOUT, &handler_a, n);
 
             Frame *f = new Frame(to, addr(), CPU::finc<short int>(_packet_count), &status, data, _using_port, port_receiver, 5);
-            f->sem(&sem);
             f->flags(0);
             f->time(Alarm::elapsed());
             if (_id == 'A' || _id == 'B') {
@@ -433,9 +432,6 @@ public:
         void flags(char flags) {
             _flags = flags;
         }
-        void sem(Semaphore * sem) {
-            _sem = sem;
-        }
         bool* status() {
             return _status;
         }
@@ -445,15 +441,11 @@ public:
         char flags() {
             return _flags;
         }
-        Semaphore * sem() {
-            return _sem;
-        }
         //Address _to;
         //unsigned short  _checksum; // verificar se o frame chegou com todos os bits corretos
         //unsigned short  _length;
     protected:
         Address _from;
-        Semaphore * _sem;
         short _frame_id;
         bool*  _status;
         char  _flags; // ACK
@@ -494,9 +486,6 @@ public:
         Timer::Tick time() const {
             return _time;
         }
-        void sem(Semaphore * sem) {
-            _sem = sem;
-        }
         short frame_id() {
             return _frame_id;
         }
@@ -511,9 +500,6 @@ public:
         }
         char flags() {
             return _flags;
-        }
-        Semaphore * sem() {
-            return _sem;
         }
         template<typename T>
         T * data() { return reinterpret_cast<T *>(_data); }
