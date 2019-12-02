@@ -188,6 +188,7 @@ public:
         _y = conversor.lat_to_y(scan_param<double>(nmea_string, 0));
         _z = 0;
         _ts = scan_param<Tick>(nmea_string, 2);
+        Alarm::elapsed() = _ts;
         db<Bolinha_Protocol>(WRN) << "nmea: " << nmea_string << endl;
         db<Bolinha_Protocol>(WRN) << "lat: " << scan_param<double>(nmea_string, 0) << endl;
         db<Bolinha_Protocol>(WRN) << "lon: " << scan_param<double>(nmea_string, 1) << endl;
@@ -224,7 +225,7 @@ public:
             if (_anchor) {
                 f->coordinates(_x, _y);
                 f->sender_id(_id);
-                db<Bolinha_Protocol>(WRN) << "Enviando minhas coordenadas " << _id << " (" << _x << ", " << _y << ")" << endl;
+                db<Bolinha_Protocol>(WRN) << "Enviando minhas coordenadas " << _id << " (" << _x << ", " << _y << ", " << _z << ")" << endl;
             }
             if (_master) {
                 f->is_master(true);
@@ -284,7 +285,7 @@ public:
         if (_anchor) {
             ack->coordinates(_x, _y);
             ack->sender_id(_id);
-            db<Bolinha_Protocol>(WRN) << "Enviando minhas coordenadas " << _id << " (" << _x << ", " << _y  << ")" << endl;
+            db<Bolinha_Protocol>(WRN) << "Enviando minhas coordenadas " << _id << " (" << _x << ", " << _y  << ", "<< _z << ")" << endl;
         }
         if (_master) {
             f->is_master(true);
@@ -311,19 +312,19 @@ public:
             _rps[0]._x = f->X();
             _rps[0]._y = f->Y();
             _rps[0].sender_id = f->sender_id();
-            _rps[0]._dist = 3;
+            _rps[0]._dist = Alarm::elapsed() % 10;
             _rps[0].set = true;
         } else if (!_rps[1].set || f->sender_id() == _rps[1].sender_id) {
             _rps[1]._x = f->X();
             _rps[1]._y = f->Y();
             _rps[1].sender_id = f->sender_id();
-            _rps[1]._dist = 5;
+            _rps[1]._dist = Alarm::elapsed() % 10;
             _rps[1].set = true;
         } else if (!_rps[2].set || f->sender_id() == _rps[2].sender_id) {
             _rps[2]._x = f->X();
             _rps[2]._y = f->Y();
+            _rps[2]._dist = Alarm::elapsed() % 10;
             _rps[2].sender_id = f->sender_id();
-            _rps[2]._dist = 5;
             _rps[2].set = true;
         }
         if (_rps[0].set && _rps[1].set && _rps[2].set) {
@@ -423,10 +424,16 @@ public:
         db<Bolinha_Protocol>(WRN) << "Trilaterando" << endl;
         double r1 = _rps[0]._dist;
         double r2 = _rps[1]._dist;
+        double r3 = _rps[2]._dist;
         double U = _rps[1]._x;
+        double Vx = _rps[2]._x;
+        double Vy = _rps[2]._y;
+        double V2 = (Vx*Vx) + (Vy*Vy);
         _x = ((r1*r1) - (r2*r2) + (U*U))/ 2*U;
-        _y = func.sqrt((r1*r1) - (_x*_x));
-        db<Bolinha_Protocol>(WRN) << "Posição trilaterada (" << _x  << ", " << _y << ")" << endl; 
+        _y = ((r1*r1) - (r3*r3) + V2 - 2*Vx*_x);
+        _z = func.sqrt((r1*r1) - (_x*_x) - (_y*_y));
+
+        db<Bolinha_Protocol>(WRN) << "Posição trilaterada (" << _x  << ", " << _y << ", "<< _z <<")" << endl; 
     }
 
     void delay_ack(bool d_ack) { _delay_ack = d_ack; }
