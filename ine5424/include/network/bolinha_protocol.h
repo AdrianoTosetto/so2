@@ -134,6 +134,7 @@ public:
 
     struct Received_Points {
         bool set = false;
+        char sender_id;
         double _x;
         double _y;
         double _dist;
@@ -143,7 +144,7 @@ public:
     typedef struct Frame_Track FT;
 
     Protocol Prot_Bolinha = Ethernet::PROTO_SP;
-    Bolinha_Protocol(short port = 5000, bool anchor = true, char id = 'A'):
+    Bolinha_Protocol(short port = 5000, bool anchor = true, bool master=false, char id = 'A'):
         _nic(Traits<Ethernet>::DEVICES::Get<0>::Result::get(0)), _anchor(anchor), _id(id) {
         OStream funcs;
         db<Bolinha_Protocol>(WRN) << "cos(30 graus) " << funcs.cos(funcs.deg2rad(30)) << endl;
@@ -157,20 +158,15 @@ public:
         } else {
             db<Bolinha_Protocol>(WRN) << "Falha ao adquirir porta!" << endl;
         }
-        if (id == 'A') {
-            _master = true;
-        }
+    
+        _master = master;
         db<Bolinha_Protocol>(WRN) <<_id << endl;
         if (_anchor)
             request_GPS_info();
 
     }
     void request_GPS_info() {
-        if (_id == 'B') {
-            _x = 100;
-            _y = 0;
-            return;
-        }
+        OStream conversor;
         char nmea_string[100];
         size_t i = 0;
         UART uart(1, 115200, 8, 0, 1);
@@ -188,12 +184,8 @@ public:
                 break;
             }
         }
-        if (_id == 'A') {
-            _x = 0;
-            _y = 0;
-        }
-        _x = scan_param<double>(nmea_string, 0);
-        _y = scan_param<double>(nmea_string, 1);
+        _x = conversor.lon_to_x(scan_param<double>(nmea_string, 1));
+        _y = conversor.lat_to_y(scan_param<double>(nmea_string, 0));
         _z = 0;
         _ts = scan_param<Tick>(nmea_string, 2);
         db<Bolinha_Protocol>(WRN) << "nmea: " << nmea_string << endl;
@@ -229,10 +221,13 @@ public:
             Frame *f = new Frame(to, addr(), CPU::finc<short int>(_packet_count), &status, data, _using_port, port_receiver, 5);
             f->flags(0);
             f->time(Alarm::elapsed());
-            if (_id == 'A' || _id == 'B') {
+            if (_anchor) {
                 f->coordinates(_x, _y);
                 f->sender_id(_id);
                 db<Bolinha_Protocol>(WRN) << "Enviando minhas coordenadas " << _id << " (" << _x << ", " << _y << ")" << endl;
+            }
+            if (_master) {
+                f->is_master(true);
             }
             Sem_Track st(f->frame_id(), &sem, &status);
             
@@ -286,10 +281,13 @@ public:
         Frame *ack = new Frame(f->from(), addr(), f->frame_id(), f->status(), ack_data, _using_port, f->port_sender(), 0);
         ack->flags(1);
         ack->time(Alarm::elapsed());
-        if (_id == 'A' || _id == 'B') {
+        if (_anchor) {
             ack->coordinates(_x, _y);
             ack->sender_id(_id);
             db<Bolinha_Protocol>(WRN) << "Enviando minhas coordenadas " << _id << " (" << _x << ", " << _y  << ")" << endl;
+        }
+        if (_master) {
+            f->is_master(true);
         }
         //if (_delay_ack) Delay (5*1000000);
         _nic->send(f->from(), Prot_Bolinha, ack, sizeof(Frame));
@@ -309,14 +307,16 @@ public:
 		Address from = f->from();
 
 
-        if (f->sender_id() == 'A') {
+        if (!_rps[0].set || _rps[0].sender_id == f->sender_id()) {
             _rps[0]._x = f->X();
             _rps[0]._y = f->Y();
+            _rps[0].sender_id = f->sender_id();
             _rps[0]._dist = 3;
             _rps[0].set = true;
-        } else if (f->sender_id() == 'B') {
+        } else if (f->sender_id() != _rps[0].sender_id) {
             _rps[1]._x = f->X();
             _rps[1]._y = f->Y();
+            _rps[1].sender_id = f->sender_id();
             _rps[1]._dist = 5;
             _rps[1].set = true;
         }
@@ -342,7 +342,7 @@ public:
             return;
         }
         if (Alarm::elapsed() - f->time() > 5000 or Alarm::elapsed() - f->time() < -5000) {
-            if (!_master && f->sender_id() == 'A') {
+            if (!_master && f->is_master()) {
                 if (ticks[3] != -1) {
                     Tick propagation_delay = ((ticks[1] - ticks[0]) + (ticks[3] - ticks[2])) / 2;
                     Tick offset = (ticks[1] - ticks[0]) - propagation_delay;
@@ -459,6 +459,7 @@ public:
         double _x;
         double _y;
         char _sender_id;
+        bool _is_master = false;
 
     } __attribute__((packed));
 
@@ -486,6 +487,9 @@ public:
         }
         void sender_id(char id) {
             _sender_id = id;
+        }
+        void is_master(bool set) {
+            _is_master = set;
         }
         Timer::Tick time() const {
             return _time;
@@ -521,6 +525,9 @@ public:
         }
         char sender_id() {
             return _sender_id;
+        }
+        bool is_master() {
+            return _is_master;
         }
     } __attribute__((packed));
 protected:
