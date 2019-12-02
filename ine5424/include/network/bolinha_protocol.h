@@ -313,16 +313,23 @@ public:
             _rps[0].sender_id = f->sender_id();
             _rps[0]._dist = 3;
             _rps[0].set = true;
-        } else if (f->sender_id() != _rps[0].sender_id) {
+        } else if (!_rps[1].set || f->sender_id() == _rps[1].sender_id) {
             _rps[1]._x = f->X();
             _rps[1]._y = f->Y();
             _rps[1].sender_id = f->sender_id();
             _rps[1]._dist = 5;
             _rps[1].set = true;
+        } else if (!_rps[2].set || f->sender_id() == _rps[2].sender_id) {
+            _rps[2]._x = f->X();
+            _rps[2]._y = f->Y();
+            _rps[2].sender_id = f->sender_id();
+            _rps[2]._dist = 5;
+            _rps[2].set = true;
         }
-        if (_rps[0].set && _rps[1].set) {
+        if (_rps[0].set && _rps[1].set && _rps[2].set) {
             _rps[0].set = false;
             _rps[1].set = false;
+            _rps[2].set = false;
             trilaterate();
         }
         if (from == addr()) {
@@ -553,7 +560,7 @@ protected:
     double _z;
     Tick _ts;
     char _id; 
-    Received_Points _rps[2];
+    Received_Points _rps[3];
 };
 
 // bool Bolinha_Protocol::_ports[] = {0};
