@@ -192,6 +192,10 @@ public:
             _x = 0;
             _y = 0;
         }
+        _x = scan_param<double>(nmea_string, 0);
+        _y = scan_param<double>(nmea_string, 1);
+        _z = 0;
+        _ts = scan_param<Tick>(nmea_string, 2);
         db<Bolinha_Protocol>(WRN) << "nmea: " << nmea_string << endl;
         db<Bolinha_Protocol>(WRN) << "lat: " << scan_param<double>(nmea_string, 0) << endl;
         db<Bolinha_Protocol>(WRN) << "lon: " << scan_param<double>(nmea_string, 1) << endl;
@@ -539,6 +543,8 @@ protected:
 	Tick ticks[4] = {-1, -1, -1, -1};
     double _x;
     double _y;
+    double _z;
+    Tick _ts;
     char _id; 
     Received_Points _rps[2];
 };
