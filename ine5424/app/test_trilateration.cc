@@ -14,31 +14,37 @@ int main()
     if(nic->address()[5] == 9) {
         cout << "começando sender (slave) " << endl;
         Delay (5*1000000);
-        Bolinha_Protocol * bp = new Bolinha_Protocol(420, false, 'C');
+        Bolinha_Protocol * bp = new Bolinha_Protocol(420, false, false, 'D');
         char *hello = "hello\n";
         Address d = bp->addr();
         Address d2 = bp->addr();
+        Address d3 = bp->addr();
         Address bc = bp->broadcast();
         d[5]--;
         d2[5] -= 2;
+        d3[5] -= 3;
         // cout << "Dado enviado: " << hello << ", para a porta: "<< 420 << endl;
         bp->send(hello, 1500, d, 420);
         Delay(10*1000000);
         bp->send(hello, 1500, d2, 420);
         Delay(5*1000000);
-        return 0;
+        bp->send(hello, 1500, d3, 420);
+        Delay(5*1000000);
     } else if (nic->address()[5] == 8){
         Delay(1000000);
-        Bolinha_Protocol * ancora1 = new Bolinha_Protocol(420, true, 'A'); // Master
+        Bolinha_Protocol * ancora1 = new Bolinha_Protocol(420, true, false, 'A'); // Master
         ancora1->receive(data, 1500);
         //cout << "Dado recebido: " << data << ", pela porta: " << 420 << endl;        return 1;
-    } else {
-        Delay(5*1000000);
-        Bolinha_Protocol * ancora2 = new Bolinha_Protocol(420, true, 'B'); // Master
+    } else if (nic->address()[5] == 7){
+        Delay(1000000);
+        Bolinha_Protocol * ancora1 = new Bolinha_Protocol(420, true, true, 'B'); // Master
+        ancora1->receive(data, 1500);
+        //cout << "Dado recebido: " << data << ", pela porta: " << 420 << endl;        return 1;
+    } else if (nic->address()[5] == 6){
+        Delay(1000000);
+        Bolinha_Protocol * ancora2 = new Bolinha_Protocol(420, true, false, 'C'); // Master
         ancora2->receive(data, 1500);
         //cout << "Dado recebido: " << data << ", pela porta: " << 420 << endl;
-        Delay(1000000);
-        return 1;
     }
     return 0;
 }
